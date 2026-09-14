@@ -69,6 +69,7 @@ SENSORS: tuple[UhppoteSensorDescription, ...] = (
         key="last_event_time",
         translation_key="last_event_time",
         device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda status: as_local(status.event_time),
     ),
     UhppoteSensorDescription(

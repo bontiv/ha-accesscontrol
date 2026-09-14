@@ -67,7 +67,11 @@ For each controller, the integration creates one device carrying, per door:
 
 - `lock.controller_223000123_door_1` — the door control mode
 - `binary_sensor.<controller>_door_1_contact` — the door sensor (`device_class: door`)
-- `binary_sensor.<controller>_door_1_relay` — the momentary relay (`device_class: lock`)
+- `binary_sensor.<controller>_door_1_relay` — the momentary relay
+  (`device_class: lock`), **disabled by default**: the lock entity already
+  reports the relay, as its `open` state and as an attribute. Enable it in
+  the entity settings if you want the raw signal on its own — typically
+  after switching the lock's open state over to the door contact.
 - `binary_sensor.<controller>_door_1_button` — the request-to-exit button (diagnostic)
 - `number.<controller>_door_1_open_delay` — the relay release duration (config)
 
@@ -76,8 +80,9 @@ and, for the controller itself:
 - `binary_sensor.<controller>_fire_alarm` and `<controller>_forced_lock`
 - `binary_sensor.<controller>_controller_error` (diagnostic)
 - `sensor.<controller>_last_card`, `_last_door`, `_last_direction`,
-  `_last_record_type`, `_last_event`
-- `sensor.<controller>_last_record_index` and `_clock_drift` (diagnostic)
+  `_last_record_type`
+- `sensor.<controller>_last_event`, `_last_record_index` and `_clock_drift`
+  (diagnostic)
 
 The number of doors is chosen when the controller is added, preselected from
 the serial number — its leading digit is 1, 2 or 4 according to the model — and

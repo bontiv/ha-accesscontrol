@@ -28,7 +28,6 @@ from .conftest import EVENT_WALL_CLOCK, make_status
         ("223000123_door_1_contact", {"door_sensors": (True, False, False, False)}, "on"),
         ("223000123_door_2_contact", {"door_sensors": (True, False, False, False)}, "off"),
         ("223000123_door_1_button", {"buttons": (True, False, False, False)}, "on"),
-        ("223000123_door_1_relay", {"relays": (True, False, False, False)}, "on"),
         ("223000123_fire", {"fire": True}, "on"),
         ("223000123_forced_lock", {"forced_lock": True}, "on"),
         ("223000123_error", {"error_code": 7}, "on"),
@@ -49,6 +48,42 @@ async def test_binary_sensor_states(
     await setup_entry()
 
     assert hass.states.get(entity_id_for("binary_sensor", unique_id)).state == expected
+
+
+async def test_relay_sensors_are_created_disabled(
+    hass: HomeAssistant, entry
+) -> None:
+    """The lock entity already reports the relay, so a second one is noise.
+
+    It is registered rather than skipped, so that switching the lock's open
+    state over to the door contact leaves the relay one click away.
+    """
+    registry = er.async_get(hass)
+    relays = [
+        item
+        for item in registry.entities.values()
+        if item.unique_id.endswith("_relay")
+    ]
+
+    assert sorted(item.unique_id for item in relays) == [
+        "223000123_door_1_relay",
+        "223000123_door_2_relay",
+    ]
+    assert all(
+        item.disabled_by is er.RegistryEntryDisabler.INTEGRATION for item in relays
+    )
+    assert all(hass.states.get(item.entity_id) is None for item in relays)
+
+
+async def test_an_enabled_relay_sensor_still_follows_the_status(
+    hass: HomeAssistant, entry, controller, entity_id_for, enable_entity
+) -> None:
+    relay = entity_id_for("binary_sensor", "223000123_door_1_relay")
+    controller.status = make_status(relays=(True, False, False, False))
+
+    await enable_entity(entry, relay)
+
+    assert hass.states.get(relay).state == "on"
 
 
 async def test_door_sensors_are_limited_to_the_real_doors(
@@ -93,6 +128,20 @@ async def test_sensor_states(
     assert dt_util.as_local(
         dt_util.parse_datetime(value("223000123_last_event_time"))
     ).replace(tzinfo=None) == EVENT_WALL_CLOCK
+
+
+async def test_the_last_event_sensor_is_diagnostic(
+    hass: HomeAssistant, entry, entity_id_for
+) -> None:
+    """It timestamps the controller's last record, not the door's state.
+
+    That puts it with the other diagnostics rather than on the main card,
+    alongside the record index it belongs with.
+    """
+    entity_id = entity_id_for("sensor", "223000123_last_event_time")
+    registry_entry = er.async_get(hass).async_get(entity_id)
+
+    assert registry_entry.entity_category is EntityCategory.DIAGNOSTIC
 
 
 async def test_last_card_is_blank_for_non_card_records(

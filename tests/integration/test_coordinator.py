@@ -130,15 +130,17 @@ async def test_push_updates_state_without_polling(
 
 
 async def test_open_schedules_a_refresh_after_the_pulse(
-    hass: HomeAssistant, entry, controller, entity_id_for
+    hass: HomeAssistant, entry, controller, entity_id_for, enable_entity
 ) -> None:
     """The relay falls back after the open delay; the state must follow.
 
     Without the scheduled refresh the relay sensor would stay stale until the
-    next poll.
+    next poll. The sensor ships disabled, so it is turned on here to watch the
+    refresh land on something observable.
     """
     controller.status = make_status(relays=(True, False, False, False))
     relay = entity_id_for("binary_sensor", "223000123_door_1_relay")
+    await enable_entity(entry, relay)
 
     await hass.services.async_call(
         "lock", "open", {ATTR_ENTITY_ID: entity_id_for("lock", "223000123_door_1_lock")},

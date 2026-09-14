@@ -74,6 +74,12 @@ def _door_sensors(door: int) -> tuple[UhppoteBinarySensorDescription, ...]:
             translation_key="door_relay",
             door=door,
             device_class=BinarySensorDeviceClass.LOCK,
+            # Off by default: the lock entity already reports the relay, both
+            # as its "open" state and as an attribute, so a second entity for
+            # the same signal would only clutter the dashboard. It remains one
+            # click away for anyone who wants it on its own -- typically after
+            # switching the lock's open state over to the door contact.
+            entity_registry_enabled_default=False,
             value_fn=lambda status: status.relays[index],
         ),
     )

@@ -251,5 +251,17 @@ def entity_id_for(hass: HomeAssistant) -> Callable[[str, str], str]:
 
 
 @pytest.fixture
+def enable_entity(hass: HomeAssistant) -> Callable[..., Any]:
+    """Turn on an entity the integration deliberately creates disabled."""
+
+    async def _enable(entry: MockConfigEntry, entity_id: str) -> None:
+        er.async_get(hass).async_update_entity(entity_id, disabled_by=None)
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    return _enable
+
+
+@pytest.fixture
 def timeout_error() -> Exception:
     return UhppoteTimeout("controller did not answer")
