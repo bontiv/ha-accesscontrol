@@ -256,6 +256,55 @@ script:
           entity_id: button.controller_223000123_open_door_1
 ```
 
+## Development container
+
+`.devcontainer/` provides a ready-made environment for VS Code: **Dev
+Containers: Reopen in Container** builds it, installs the `integration`
+dependency group, and configures test discovery.
+
+It pins **Python 3.12** deliberately — `pytest-homeassistant-custom-component`
+does not install on 3.13 (see below) — so it is the simplest way to run the
+whole suite on a machine that has a different Python.
+
+Inside the container:
+
+```bash
+pytest                  # the whole suite
+pytest tests/protocol   # protocol only
+scripts/develop         # Home Assistant on http://localhost:8123
+```
+
+`scripts/develop` creates a throwaway Home Assistant configuration in
+`config/` (git-ignored) and symlinks `custom_components/` into it, so the
+running instance always reflects the working tree. Delete `config/` to start
+over.
+
+One limitation: the push channel (`0x90`) receives UDP, which Dev Containers
+cannot forward. Test pushing against a real controller from a host install, or
+run the container with host networking.
+
+### Troubleshooting
+
+**`is not a valid Windows path` when the container starts.** On Windows with
+WSL installed, VS Code tries to bind-mount a Wayland socket from a WSL
+distribution so that GUI applications work:
+
+```
+docker: Error response from daemon:
+\wsl.localhost\<distro>\mnt\wslg\runtime-dir\wayland-0 is not a valid Windows path
+```
+
+Docker Desktop cannot bind-mount a UNC path, so the container never starts.
+This is injected by the Dev Containers extension, not by `devcontainer.json`,
+and cannot be disabled from this repository: the setting has `application`
+scope, so it belongs in your VS Code **user** settings.
+
+```json
+"dev.containers.mountWaylandSocket": false
+```
+
+Nothing in this project needs a GUI inside the container.
+
 ## Testing outside Home Assistant
 
 `tools/uhppote_cli.py` exercises the same protocol without dependencies:
