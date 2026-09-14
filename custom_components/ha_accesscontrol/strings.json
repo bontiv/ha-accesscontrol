@@ -24,6 +24,13 @@
           "serial": "Serial number",
           "port": "UDP port"
         }
+      },
+      "doors": {
+        "title": "Number of doors",
+        "description": "How many doors does controller {serial} drive? The serial number suggests the preselected answer.",
+        "data": {
+          "doors": "Doors"
+        }
       }
     },
     "abort": {
@@ -35,12 +42,13 @@
     "step": {
       "init": {
         "title": "Communication settings",
-        "description": "Pushing makes the controller send records as they happen. A controller stores a single receiving server, so enabling it replaces any other software currently registered.",
+        "description": "Pushing makes the controller send records as they happen. A controller stores a single receiving server, so enabling it replaces any other software currently registered. Clock synchronisation rewrites the controller clock at each daylight-saving transition, which the hardware cannot handle on its own.",
         "data": {
           "timeout": "Reply timeout (s)",
           "retries": "Extra retries",
           "scan_interval": "Polling interval (s)",
           "doors": "Number of doors",
+          "sync_clock": "Keep the controller clock synchronised",
           "push_enabled": "Let the controller push records",
           "push_port": "Local UDP port to receive records",
           "push_interval": "Heartbeat interval (s, 0 = records only)"
@@ -181,6 +189,16 @@
           "name": "Broadcast address",
           "description": "Broadcast address to use."
         }
+      }
+    }
+  },
+  "selector": {
+    "doors": {
+      "options": {
+        "1": "1 door",
+        "2": "2 doors",
+        "3": "3 doors",
+        "4": "4 doors"
       }
     }
   }

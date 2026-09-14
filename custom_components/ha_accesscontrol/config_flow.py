@@ -14,7 +14,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, selector
 
 from .api import ControllerInfo, UhppoteError, discover, doors_for_serial
 from .const import (
@@ -25,6 +25,7 @@ from .const import (
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
     CONF_SERIAL,
+    CONF_SYNC_CLOCK,
     CONF_TIMEOUT,
     DEFAULT_BROADCAST_ADDRESS,
     DEFAULT_PORT,
@@ -33,6 +34,7 @@ from .const import (
     DEFAULT_PUSH_PORT,
     DEFAULT_RETRIES,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SYNC_CLOCK,
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
@@ -47,6 +49,21 @@ MANUAL_SCHEMA = vol.Schema(
     }
 )
 
+# Radio buttons rather than a number box: there are only four possible answers,
+# and the model is usually known from the serial number anyway.
+DOORS_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=["1", "2", "3", "4"],
+        mode=selector.SelectSelectorMode.LIST,
+        translation_key="doors",
+    )
+)
+
+
+def _doors_schema(default: int) -> vol.Schema:
+    """Radio buttons for the door count, preselected on ``default``."""
+    return vol.Schema({vol.Required(CONF_DOORS, default=str(default)): DOORS_SELECTOR})
+
 
 class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a controller through discovery or manual entry."""
@@ -55,6 +72,7 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._discovered: dict[str, ControllerInfo] = {}
+        self._pending: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -100,37 +118,48 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(str(info.serial))
         self._abort_if_unique_id_configured()
 
-        return self.async_create_entry(
-            title=f"Controller {info.serial}",
-            data={
-                CONF_HOST: info.ip_address,
-                CONF_SERIAL: info.serial,
-                CONF_PORT: DEFAULT_PORT,
-                CONF_DOORS: info.doors,
-            },
-        )
+        self._pending = {
+            CONF_HOST: info.ip_address,
+            CONF_SERIAL: info.serial,
+            CONF_PORT: DEFAULT_PORT,
+        }
+        return await self.async_step_doors()
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manually enter the IP address and serial number."""
-        errors: dict[str, str] = {}
+        if user_input is None:
+            return self.async_show_form(step_id="manual", data_schema=MANUAL_SCHEMA)
+
+        await self.async_set_unique_id(str(user_input[CONF_SERIAL]))
+        self._abort_if_unique_id_configured(
+            updates={CONF_HOST: user_input[CONF_HOST]}
+        )
+
+        self._pending = dict(user_input)
+        return await self.async_step_doors()
+
+    async def async_step_doors(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose how many doors the controller drives.
+
+        The leading digit of the serial number identifies the model, so the
+        matching option is preselected and the step is usually one click.
+        """
+        serial = self._pending[CONF_SERIAL]
 
         if user_input is not None:
-            serial = user_input[CONF_SERIAL]
-            await self.async_set_unique_id(str(serial))
-            self._abort_if_unique_id_configured(
-                updates={CONF_HOST: user_input[CONF_HOST]}
-            )
-            # The leading digit of the serial number identifies the model; the
-            # door count can be overridden later in the options.
             return self.async_create_entry(
                 title=f"Controller {serial}",
-                data={**user_input, CONF_DOORS: doors_for_serial(serial)},
+                data={**self._pending, CONF_DOORS: int(user_input[CONF_DOORS])},
             )
 
         return self.async_show_form(
-            step_id="manual", data_schema=MANUAL_SCHEMA, errors=errors
+            step_id="doors",
+            data_schema=_doors_schema(doors_for_serial(serial)),
+            description_placeholders={"serial": str(serial)},
         )
 
     @staticmethod
@@ -140,18 +169,24 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class UhppoteOptionsFlow(OptionsFlow):
-    """Configure polling, retries and the push channel."""
+    """Configure polling, retries, the clock and the push channel."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            # The selector hands back a string; everything downstream counts
+            # doors with it.
+            return self.async_create_entry(
+                data={**user_input, CONF_DOORS: int(user_input[CONF_DOORS])}
+            )
 
         entry = self.config_entry
         options = entry.options
-        default_doors = entry.data.get(CONF_DOORS) or doors_for_serial(
-            entry.data[CONF_SERIAL]
+        default_doors = (
+            options.get(CONF_DOORS)
+            or entry.data.get(CONF_DOORS)
+            or doors_for_serial(entry.data[CONF_SERIAL])
         )
 
         schema = vol.Schema(
@@ -168,10 +203,11 @@ class UhppoteOptionsFlow(OptionsFlow):
                     CONF_SCAN_INTERVAL,
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3600)),
+                vol.Required(CONF_DOORS, default=str(default_doors)): DOORS_SELECTOR,
                 vol.Optional(
-                    CONF_DOORS,
-                    default=options.get(CONF_DOORS, default_doors),
-                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=4)),
+                    CONF_SYNC_CLOCK,
+                    default=options.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK),
+                ): cv.boolean,
                 vol.Optional(
                     CONF_PUSH_ENABLED,
                     default=options.get(CONF_PUSH_ENABLED, DEFAULT_PUSH_ENABLED),

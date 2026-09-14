@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -16,7 +17,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import dt as dt_util
 
 from .api import RECORD_CARD, ControllerStatus
 from .const import DOMAIN, RECORD_TYPES
@@ -26,24 +26,14 @@ from .entity import UhppoteEntity
 StateType = str | int | float | datetime | None
 
 
-def _clock_drift(status: ControllerStatus) -> float | None:
-    """Difference between the controller clock and Home Assistant, in seconds.
-
-    Returns ``None`` on firmware that does not report its current date
-    (bytes 51-53 of the status packet), since the time of day alone cannot be
-    compared reliably across midnight.
-    """
-    moment = as_local(status.controller_time)
-    if moment is None:
-        return None
-    return round((moment - dt_util.now()).total_seconds(), 1)
-
-
 @dataclass(frozen=True, kw_only=True)
 class UhppoteSensorDescription(SensorEntityDescription):
     """Describe a sensor backed by the status packet."""
 
-    value_fn: Callable[[ControllerStatus], StateType]
+    value_fn: Callable[[ControllerStatus], StateType] | None = None
+    # Sensors that need more than the status packet read the coordinator.
+    coordinator_fn: Callable[["UhppoteCoordinator"], StateType] | None = None
+    attributes_fn: Callable[["UhppoteCoordinator"], dict[str, Any]] | None = None
 
 
 SENSORS: tuple[UhppoteSensorDescription, ...] = (
@@ -96,7 +86,17 @@ SENSORS: tuple[UhppoteSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:clock-alert-outline",
-        value_fn=_clock_drift,
+        coordinator_fn=lambda coordinator: (
+            None if (drift := coordinator.clock_drift()) is None else round(drift, 1)
+        ),
+        attributes_fn=lambda coordinator: {
+            "dst_active": coordinator.dst_active,
+            "next_clock_sync": (
+                coordinator.next_clock_sync.isoformat()
+                if coordinator.next_clock_sync
+                else None
+            ),
+        },
     ),
 )
 
@@ -128,6 +128,14 @@ class UhppoteSensor(UhppoteEntity, SensorEntity):
 
     @property
     def native_value(self) -> StateType:
+        if self.entity_description.coordinator_fn is not None:
+            return self.entity_description.coordinator_fn(self.coordinator)
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.attributes_fn is None:
+            return None
+        return self.entity_description.attributes_fn(self.coordinator)

@@ -18,16 +18,22 @@ from pathlib import Path
 
 import pytest
 
-_API_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "custom_components"
-    / "ha_accesscontrol"
-    / "api.py"
+_COMPONENT = (
+    Path(__file__).resolve().parents[2] / "custom_components" / "ha_accesscontrol"
 )
-_spec = importlib.util.spec_from_file_location("uhppote_api", _API_PATH)
-api = importlib.util.module_from_spec(_spec)
-sys.modules["uhppote_api"] = api
-_spec.loader.exec_module(api)
+
+
+def _load(module: str, alias: str):
+    """Import one module of the integration without its package."""
+    spec = importlib.util.spec_from_file_location(alias, _COMPONENT / f"{module}.py")
+    loaded = importlib.util.module_from_spec(spec)
+    sys.modules[alias] = loaded
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+api = _load("api", "uhppote_api")
+timezones = _load("timezones", "uhppote_timezones")
 
 
 SERIAL = 223000123  # 0x0D4AB63B, the documentation example

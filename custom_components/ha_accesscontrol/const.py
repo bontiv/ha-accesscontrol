@@ -15,6 +15,7 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_PUSH_ENABLED: Final = "push_enabled"
 CONF_PUSH_PORT: Final = "push_port"
 CONF_PUSH_INTERVAL: Final = "push_interval"
+CONF_SYNC_CLOCK: Final = "sync_clock"
 
 DEFAULT_PORT: Final = 60000
 DEFAULT_DOORS: Final = 4
@@ -27,6 +28,12 @@ DEFAULT_SCAN_INTERVAL: Final = 10
 DEFAULT_PUSH_ENABLED: Final = False
 DEFAULT_PUSH_PORT: Final = 60002
 DEFAULT_PUSH_INTERVAL: Final = 30
+# The controllers have no daylight-saving rules, so their clock is wrong by a
+# full hour after every transition until it is rewritten.
+DEFAULT_SYNC_CLOCK: Final = True
+# Rewrite the clock when it is off by more than this, in seconds. Catches a
+# transition missed while Home Assistant was down, and plain drift.
+CLOCK_DRIFT_THRESHOLD: Final = 60
 
 SERVICE_OPEN_DOOR: Final = "open_door"
 SERVICE_DISCOVER: Final = "discover"

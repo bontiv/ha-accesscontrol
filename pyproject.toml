@@ -14,6 +14,9 @@
 test = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    # zoneinfo has no system tz database on Windows, and the daylight-saving
+    # tests need real zones.
+    "tzdata",
 ]
 
 # Tests covering the Home Assistant layer (coordinator, entities, config flow).

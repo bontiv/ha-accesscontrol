@@ -24,6 +24,13 @@
           "serial": "Numéro de série",
           "port": "Port UDP"
         }
+      },
+      "doors": {
+        "title": "Nombre de portes",
+        "description": "Combien de portes le contrôleur {serial} pilote-t-il ? Le numéro de série suggère la réponse présélectionnée.",
+        "data": {
+          "doors": "Portes"
+        }
       }
     },
     "abort": {
@@ -35,12 +42,13 @@
     "step": {
       "init": {
         "title": "Paramètres de communication",
-        "description": "L'envoi spontané fait remonter les enregistrements dès qu'ils surviennent. Le contrôleur ne mémorise qu'un seul serveur récepteur : l'activer remplace tout autre logiciel actuellement enregistré.",
+        "description": "L'envoi spontané fait remonter les enregistrements dès qu'ils surviennent. Le contrôleur ne mémorise qu'un seul serveur récepteur : l'activer remplace tout autre logiciel actuellement enregistré. La synchronisation d'horloge réécrit l'heure du contrôleur à chaque changement d'heure, que le matériel ne sait pas gérer seul.",
         "data": {
           "timeout": "Délai de réponse (s)",
           "retries": "Tentatives supplémentaires",
           "scan_interval": "Intervalle d'interrogation (s)",
           "doors": "Nombre de portes",
+          "sync_clock": "Maintenir l'horloge du contrôleur à l'heure",
           "push_enabled": "Laisser le contrôleur envoyer les enregistrements",
           "push_port": "Port UDP local de réception",
           "push_interval": "Intervalle du battement de cœur (s, 0 = enregistrements seuls)"
@@ -181,6 +189,16 @@
           "name": "Adresse de diffusion",
           "description": "Adresse de diffusion à utiliser."
         }
+      }
+    }
+  },
+  "selector": {
+    "doors": {
+      "options": {
+        "1": "1 porte",
+        "2": "2 portes",
+        "3": "3 portes",
+        "4": "4 portes"
       }
     }
   }

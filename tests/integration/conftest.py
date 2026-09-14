@@ -15,6 +15,7 @@ import pytest
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ha_accesscontrol.api import (
@@ -65,7 +66,9 @@ def make_status(**overrides: Any) -> ControllerStatus:
         "relays": (False, False, False, False),
         "forced_lock": False,
         "fire": False,
-        "controller_time": EVENT_WALL_CLOCK,
+        # A healthy controller agrees with Home Assistant; a test that wants
+        # drift sets this explicitly.
+        "controller_time": dt_util.now().replace(tzinfo=None),
     }
     return ControllerStatus(**{**defaults, **overrides})
 

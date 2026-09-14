@@ -6,16 +6,16 @@ import logging
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, Platform
+from homeassistant.const import CONF_HOST, CONF_PORT, EVENT_CORE_CONFIG_UPDATE, Platform
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
     ServiceResponse,
     SupportsResponse,
+    callback,
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
-from homeassistant.util import dt as dt_util
 
 from .api import (
     EventListener,
@@ -38,6 +38,7 @@ from .const import (
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
     CONF_SERIAL,
+    CONF_SYNC_CLOCK,
     CONF_TIMEOUT,
     DEFAULT_BROADCAST_ADDRESS,
     DEFAULT_PORT,
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_PUSH_PORT,
     DEFAULT_RETRIES,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SYNC_CLOCK,
     DEFAULT_TIMEOUT,
     DOMAIN,
     MODE_TO_CODE,
@@ -140,11 +142,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         controller,
         doors=doors,
         scan_interval=_poll_interval(entry),
+        sync_clock=entry.options.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK),
     )
     await coordinator.async_config_entry_first_refresh()
     await coordinator.async_load_door_configs()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
+    await _async_setup_clock_sync(hass, entry, coordinator)
 
     if entry.options.get(CONF_PUSH_ENABLED, DEFAULT_PUSH_ENABLED):
         await _async_start_push(hass, entry, coordinator)
@@ -178,6 +183,45 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the entry when its options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+# --------------------------------------------------------------------------
+# Controller clock (functions 0x30 / 0x32)
+# --------------------------------------------------------------------------
+
+
+async def _async_setup_clock_sync(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: UhppoteCoordinator
+) -> None:
+    """Keep the controller clock aligned with Home Assistant's local time.
+
+    The controllers know nothing about daylight saving, so their clock is off
+    by a full hour after every transition until it is rewritten. Two things are
+    arranged here: a catch-up now, in case a transition was missed while Home
+    Assistant was down, and a timer for the next one.
+    """
+    if not coordinator.sync_clock:
+        return
+
+    try:
+        await coordinator.async_sync_clock_if_drifted()
+    except UhppoteError as err:
+        _LOGGER.warning(
+            "Could not synchronise the clock of controller %s: %s",
+            coordinator.serial,
+            err,
+        )
+
+    coordinator.async_schedule_clock_sync()
+
+    @callback
+    def _handle_core_config_update(_event) -> None:
+        """Re-arm the timer when the user changes Home Assistant's timezone."""
+        coordinator.async_schedule_clock_sync()
+
+    entry.async_on_unload(
+        hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, _handle_core_config_update)
+    )
 
 
 # --------------------------------------------------------------------------
@@ -365,10 +409,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def _handle_sync_time(call: ServiceCall) -> None:
         coordinator = _resolve_coordinator(hass, call.data.get(ATTR_SERIAL))
         try:
-            await coordinator.controller.set_time(dt_util.now().replace(tzinfo=None))
+            await coordinator.async_sync_clock()
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
-        await coordinator.async_request_refresh()
 
     async def _handle_discover(call: ServiceCall) -> ServiceResponse:
         try:

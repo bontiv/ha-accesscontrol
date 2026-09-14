@@ -9,7 +9,7 @@ Supported functions:
 | Function | Code | Usage |
 |---|---|---|
 | Controller status | `0x20` | `binary_sensor` and `sensor` entities (polled and pushed) |
-| Set the clock | `0x30` | `ha_accesscontrol.sync_time` service |
+| Set the clock | `0x30` | automatic daylight-saving resync, clock button, `ha_accesscontrol.sync_time` |
 | Read the clock | `0x32` | clock drift sensor |
 | Remote door opening | `0x40` | `button` entities, `lock.open`, `ha_accesscontrol.open_door` |
 | Set door control | `0x80` | `lock` entities + `ha_accesscontrol.set_door_mode` |
@@ -55,6 +55,9 @@ integrates with the configuration UI.
    Controller**.
 5. Choose **Search the network** (`0x94` broadcast) or **Enter the address
    manually** (IP address and the serial number printed on the enclosure).
+6. Pick the number of doors. The leading digit of the serial number identifies
+   the model, so the matching option is already selected; change it if the
+   controller drives fewer doors than it supports.
 
 Minimum Home Assistant version: **2024.11**.
 
@@ -77,9 +80,10 @@ and, for the controller itself:
   `_last_record_type`, `_last_event`
 - `sensor.<controller>_last_record_index` and `_clock_drift` (diagnostic)
 
-The number of doors is derived from the serial number — its leading digit is
-1, 2 or 4 according to the model — and can be overridden through **Configure**,
-along with the timeout, retry count, polling interval and push settings.
+The number of doors is chosen when the controller is added, preselected from
+the serial number — its leading digit is 1, 2 or 4 according to the model — and
+can be changed later through **Configure**, along with the timeout, retry
+count, polling interval, clock and push settings.
 
 ### What `lock` means here
 
@@ -107,6 +111,39 @@ next poll.
 > **`lock.unlock` is persistent.** It holds the door normally open in the
 > controller's own configuration, across a Home Assistant restart, until it is
 > locked again.
+
+## The controller clock
+
+The controllers store a plain wall clock. They have no timezone and **no
+daylight-saving rules**, so at every transition their clock silently becomes
+wrong by an hour, and every record they timestamp afterwards is wrong with it.
+
+The integration therefore watches Home Assistant's own timezone and rewrites
+the clock (`0x30`) when the local UTC offset changes. Enabled by default; turn
+off **Keep the controller clock synchronised** in the options to manage it
+yourself.
+
+Three things happen:
+
+- **At each transition.** The next change of the local UTC offset is computed
+  from the configured timezone and a timer is armed for it. After it fires, the
+  following one is armed. If the controller is unreachable at that moment the
+  retry is ten minutes later, not six months.
+- **At start-up.** If the clock is off by more than 60 seconds, it is rewritten
+  straight away. This catches a transition that happened while Home Assistant
+  was down, and ordinary drift. It needs firmware that reports its date
+  (bytes 51-53 of the status packet); older units only get the scheduled resync.
+- **When you change Home Assistant's timezone.** The timer is re-armed.
+
+The `clock drift` diagnostic sensor carries two attributes:
+
+| Attribute | Meaning |
+|---|---|
+| `dst_active` | whether daylight saving is currently in effect |
+| `next_clock_sync` | when the next automatic resync is due, or `null` for a zone without daylight saving |
+
+A zone with no daylight saving (UTC, Asia/Kolkata, …) arms no timer; only the
+drift catch-up applies.
 
 ## Real-time events
 

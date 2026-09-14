@@ -8,7 +8,6 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import dt as dt_util
 
 from .api import UhppoteError
 from .const import DOMAIN
@@ -48,12 +47,9 @@ class UhppoteSyncTimeButton(UhppoteEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Send the current local time to the controller."""
         try:
-            await self.coordinator.controller.set_time(
-                dt_util.now().replace(tzinfo=None)
-            )
+            await self.coordinator.async_sync_clock()
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
-        await self.coordinator.async_request_refresh()
 
 
 class UhppoteOpenDoorButton(UhppoteEntity, ButtonEntity):

@@ -7,19 +7,27 @@ from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.event import async_call_later, async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import ControllerStatus, DoorConfig, UhppoteController, UhppoteError
 from .const import (
+    CLOCK_DRIFT_THRESHOLD,
     CODE_TO_MODE,
     DOMAIN,
     EVENT_RECORD,
     RECORD_TYPES,
 )
+from .timezones import is_dst, next_utc_offset_change
 
 _LOGGER = logging.getLogger(__name__)
+
+# Fire just after the transition, never exactly on it.
+CLOCK_SYNC_MARGIN = timedelta(seconds=5)
+# A controller that was unreachable at the transition must not wait six months
+# for the next one.
+CLOCK_SYNC_RETRY = timedelta(minutes=10)
 
 
 def as_local(moment: datetime | None) -> datetime | None:
@@ -49,6 +57,7 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         *,
         doors: int,
         scan_interval: int,
+        sync_clock: bool = False,
     ) -> None:
         super().__init__(
             hass,
@@ -63,6 +72,9 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         self._last_record_index: int | None = None
         self._push_active = False
         self._pulse_timers: dict[int, CALLBACK_TYPE] = {}
+        self.sync_clock = sync_clock
+        self.next_clock_sync: datetime | None = None
+        self._clock_timer: CALLBACK_TYPE | None = None
 
     @property
     def serial(self) -> int:
@@ -197,9 +209,114 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
 
         self._pulse_timers[door] = async_call_later(self.hass, delay + 1, _settled)
 
+    # ----------------------------------------------------------- the clock
+
+    @property
+    def dst_active(self) -> bool:
+        """Whether daylight saving is currently in effect where the user is."""
+        return is_dst(dt_util.DEFAULT_TIME_ZONE, dt_util.utcnow())
+
+    def clock_drift(self) -> float | None:
+        """Seconds the controller clock is ahead of Home Assistant.
+
+        ``None`` on firmware that does not report its current date, which
+        cannot be compared reliably across midnight.
+        """
+        if self.data is None or self.data.controller_time is None:
+            return None
+        moment = as_local(self.data.controller_time)
+        return (moment - dt_util.now()).total_seconds()
+
+    async def async_sync_clock(self) -> None:
+        """Write Home Assistant's local wall clock to the controller (0x30)."""
+        await self.controller.set_time(dt_util.now().replace(tzinfo=None))
+        _LOGGER.info("Clock of controller %s synchronised", self.serial)
+        await self.async_request_refresh()
+
+    async def async_sync_clock_if_drifted(self) -> bool:
+        """Rewrite the clock when it is measurably wrong.
+
+        This is the recovery path: a transition that happened while Home
+        Assistant was down leaves the controller an hour out, and nothing else
+        would notice until the next one.
+        """
+        drift = self.clock_drift()
+        if drift is None or abs(drift) < CLOCK_DRIFT_THRESHOLD:
+            return False
+
+        _LOGGER.info(
+            "Clock of controller %s is off by %.0f s; resynchronising",
+            self.serial,
+            drift,
+        )
+        await self.async_sync_clock()
+        return True
+
+    @callback
+    def async_schedule_clock_sync(self) -> None:
+        """Arrange a resync at the next change of the local UTC offset.
+
+        The controllers have no daylight-saving rules, so the clock has to be
+        rewritten at every transition. Rescheduling happens after each run, and
+        whenever Home Assistant's timezone changes.
+        """
+        if self._clock_timer is not None:
+            self._clock_timer()
+            self._clock_timer = None
+
+        self.next_clock_sync = None
+        if not self.sync_clock:
+            return
+
+        timezone = dt_util.DEFAULT_TIME_ZONE
+        moment = next_utc_offset_change(timezone, dt_util.utcnow())
+        if moment is None:
+            _LOGGER.debug(
+                "Timezone %s has no upcoming offset change; controller %s needs "
+                "no scheduled resynchronisation",
+                timezone,
+                self.serial,
+            )
+            return
+
+        self.next_clock_sync = moment
+        self._clock_timer = async_track_point_in_utc_time(
+            self.hass, self._async_clock_transition, moment + CLOCK_SYNC_MARGIN
+        )
+        _LOGGER.debug(
+            "Clock of controller %s will be resynchronised at %s",
+            self.serial,
+            moment.isoformat(),
+        )
+
+    async def _async_clock_transition(self, _now: datetime) -> None:
+        """Run at a daylight-saving transition, then arm the next one."""
+        self._clock_timer = None
+        try:
+            await self.async_sync_clock()
+        except UhppoteError as err:
+            _LOGGER.warning(
+                "Could not resynchronise the clock of controller %s at the "
+                "daylight-saving transition: %s. Retrying in %s minutes.",
+                self.serial,
+                err,
+                int(CLOCK_SYNC_RETRY.total_seconds() // 60),
+            )
+            self._clock_timer = async_track_point_in_utc_time(
+                self.hass,
+                self._async_clock_transition,
+                dt_util.utcnow() + CLOCK_SYNC_RETRY,
+            )
+            return
+
+        self.async_schedule_clock_sync()
+
     async def async_shutdown(self) -> None:
-        """Cancel pending pulse timers before the coordinator goes away."""
+        """Cancel pending timers before the coordinator goes away."""
         for cancel in self._pulse_timers.values():
             cancel()
         self._pulse_timers.clear()
+        if self._clock_timer is not None:
+            self._clock_timer()
+            self._clock_timer = None
         await super().async_shutdown()
