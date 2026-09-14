@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Contrôleur d'accès ACB",
+        "description": "Comment souhaitez-vous ajouter le contrôleur ?",
+        "menu_options": {
+          "discovery": "Rechercher sur le réseau",
+          "manual": "Saisir l'adresse manuellement"
+        }
+      },
+      "discovery": {
+        "title": "Contrôleurs détectés",
+        "description": "Sélectionnez le contrôleur à ajouter.",
+        "data": {
+          "serial": "Contrôleur",
+          "doors": "Nombre de portes"
+        }
+      },
+      "manual": {
+        "title": "Configuration manuelle",
+        "description": "Saisissez l'adresse IP et le numéro de série imprimé sur le contrôleur.",
+        "data": {
+          "host": "Adresse IP",
+          "serial": "Numéro de série",
+          "port": "Port UDP",
+          "doors": "Nombre de portes"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Ce contrôleur est déjà configuré.",
+      "no_devices_found": "Aucun contrôleur n'a répondu à la diffusion. Vérifiez que Home Assistant est sur le même sous-réseau, puis utilisez la saisie manuelle."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Réglages de communication",
+        "data": {
+          "timeout": "Délai d'attente d'une réponse (s)",
+          "retries": "Nombre de tentatives supplémentaires"
+        }
+      }
+    }
+  },
+  "services": {
+    "open_door": {
+      "name": "Ouvrir une porte",
+      "description": "Envoie la commande d'ouverture à distance au contrôleur.",
+      "fields": {
+        "serial": {
+          "name": "Numéro de série",
+          "description": "Numéro de série du contrôleur."
+        },
+        "door": {
+          "name": "Porte",
+          "description": "Numéro de la porte à ouvrir (1 à 4)."
+        }
+      }
+    },
+    "discover": {
+      "name": "Rechercher les contrôleurs",
+      "description": "Diffuse une requête de découverte sur le réseau local.",
+      "fields": {
+        "timeout": {
+          "name": "Délai d'écoute",
+          "description": "Durée d'écoute des réponses, en secondes."
+        },
+        "broadcast_address": {
+          "name": "Adresse de diffusion",
+          "description": "Adresse de diffusion à utiliser."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ACB access controller",
+        "description": "How would you like to add the controller?",
+        "menu_options": {
+          "discovery": "Search the network",
+          "manual": "Enter the address manually"
+        }
+      },
+      "discovery": {
+        "title": "Controllers found",
+        "description": "Select the controller to add.",
+        "data": {
+          "serial": "Controller",
+          "doors": "Number of doors"
+        }
+      },
+      "manual": {
+        "title": "Manual setup",
+        "description": "Enter the IP address and the serial number printed on the controller.",
+        "data": {
+          "host": "IP address",
+          "serial": "Serial number",
+          "port": "UDP port",
+          "doors": "Number of doors"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This controller is already configured.",
+      "no_devices_found": "No controller answered the broadcast. Check that Home Assistant is on the same subnet, then use manual setup."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Communication settings",
+        "data": {
+          "timeout": "Reply timeout (s)",
+          "retries": "Extra retries"
+        }
+      }
+    }
+  },
+  "services": {
+    "open_door": {
+      "name": "Open door",
+      "description": "Sends the remote open-door command to the controller.",
+      "fields": {
+        "serial": {
+          "name": "Serial number",
+          "description": "Controller serial number."
+        },
+        "door": {
+          "name": "Door",
+          "description": "Door number to open (1-4)."
+        }
+      }
+    },
+    "discover": {
+      "name": "Discover controllers",
+      "description": "Broadcasts a discovery request on the local network.",
+      "fields": {
+        "timeout": {
+          "name": "Listen timeout",
+          "description": "How long to listen for replies, in seconds."
+        },
+        "broadcast_address": {
+          "name": "Broadcast address",
+          "description": "Broadcast address to use."
+        }
+      }
+    }
+  }
+}

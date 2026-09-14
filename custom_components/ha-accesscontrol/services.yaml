@@ -1,0 +1,55 @@
+open_door:
+  name: Open door
+  description: >-
+    Sends the remote open-door command (function 0x40) to the controller.
+  fields:
+    serial:
+      name: Serial number
+      description: >-
+        Controller serial number. Optional when only one controller is
+        configured.
+      required: false
+      example: 223000123
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 4294967295
+    door:
+      name: Door
+      description: Door number to open (1-4).
+      required: true
+      example: 1
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 4
+
+discover:
+  name: Discover controllers
+  description: >-
+    Broadcasts a discovery request (function 0x94) on the local network and
+    returns the controllers that respond.
+  fields:
+    timeout:
+      name: Listen timeout
+      description: How long to listen for replies, in seconds.
+      required: false
+      default: 3
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 15
+          unit_of_measurement: s
+    broadcast_address:
+      name: Broadcast address
+      description: >-
+        Broadcast address to use. Replace it with your subnet's directed
+        broadcast address (for example, 192.168.1.255) if global broadcast is
+        filtered.
+      required: false
+      default: "255.255.255.255"
+      selector:
+        text:
