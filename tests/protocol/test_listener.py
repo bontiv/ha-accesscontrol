@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 import uhppote_api as api
-from captures import STATUS_RECENT
-from conftest import DOC_SERIAL
+from .captures import STATUS_RECENT
+from .conftest import DOC_SERIAL
 
 
 def push_packet(

@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 import uhppote_api as api
-from captures import STATUS_OLD, STATUS_RECENT
-from conftest import DOC_SERIAL, SERIAL
+from .captures import STATUS_OLD, STATUS_RECENT
+from .conftest import DOC_SERIAL, SERIAL
 
 
 def test_decodes_documented_capture() -> None:

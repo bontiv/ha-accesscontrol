@@ -67,6 +67,7 @@ For each controller, the integration creates one device carrying, per door:
 - `binary_sensor.<controller>_door_1_contact` — the door sensor (`device_class: door`)
 - `binary_sensor.<controller>_door_1_relay` — the momentary relay (`device_class: lock`)
 - `binary_sensor.<controller>_door_1_button` — the request-to-exit button (diagnostic)
+- `number.<controller>_door_1_open_delay` — the relay release duration (config)
 
 and, for the controller itself:
 
@@ -92,6 +93,16 @@ The controller has two independent notions of "open":
 stable enough to use in automations. `lock.open` sends a one-shot `0x40` pulse
 and leaves the mode alone. The momentary relay is published as its own binary
 sensor, which is what flips for the three seconds of a badge read.
+
+The pulse length is the door's **open delay**, readable and writable through the
+`number` entity (function `0x82` / `0x80`, `entity_category: config`). Because
+the integration knows that value, it schedules a state refresh just after the
+relay is due to fall back, instead of leaving the relay sensor stale until the
+next poll.
+
+> Function `0x80` writes the control mode and the open delay in the same packet.
+> The integration always reads back the field it is not changing and sends it
+> untouched, so setting the delay never disturbs the mode, and vice versa.
 
 > **`lock.unlock` is persistent.** It holds the door normally open in the
 > controller's own configuration, across a Home Assistant restart, until it is
@@ -258,28 +269,42 @@ python3 tools/uhppote_cli.py open --host 192.168.1.50 --serial 223000123 --door 
 
 Development dependencies are declared as [PEP 735](https://peps.python.org/pep-0735/)
 dependency groups in `pyproject.toml`, so no separate requirements file is
-needed. With pip 25.1 or later:
+needed. The suite is split in two:
+
+| Package | Group | Covers |
+|---|---|---|
+| `tests/protocol/` | `test` | `api.py` alone: framing, BCD, status decoding, UDP exchanges, push listener |
+| `tests/integration/` | `integration` | coordinator, entities, services, config flow, push wiring |
+
+The protocol tests import nothing beyond the standard library, so they run on
+any supported Python version with no Home Assistant installed:
 
 ```bash
 python3 -m pip install --group test
 python3 -m pytest
 ```
 
-or, with [uv](https://docs.astral.sh/uv/):
+The Home Assistant tests need the heavier group, and **Python 3.12** --
+`pytest-homeassistant-custom-component` pins `lru-dict` 1.3.0, which has no
+wheel for 3.13 and does not build there:
 
 ```bash
-uv run --group test pytest
+python3 -m pip install --group integration
+python3 -m pytest
 ```
 
-The tests exercise `api.py` alone, which imports nothing beyond the standard
-library, so they run on any supported Python version without Home Assistant
-installed. The `integration` group additionally pulls in
-`pytest-homeassistant-custom-component` for tests of the Home Assistant layer.
+Without that group, `tests/integration/` is skipped automatically, so the first
+command always works. On a machine without Python 3.12, the container route
+gives the same result:
+
+```bash
+docker run --rm -v "$PWD:/app" -w /app python:3.12-slim   bash -c 'pip install -q --upgrade "pip>=25.1" && pip install -q --group integration && pytest'
+```
 
 The status decoder is checked against the annotated packet captures printed in
 the manufacturer's *Short Packet Format Examples* document (see
-`tests/captures.py`), including an older firmware revision that leaves the
-controller date (bytes 51-53) at zero.
+`tests/protocol/captures.py`), including an older firmware revision that leaves
+the controller date (bytes 51-53) at zero.
 
 ## Security
 
@@ -288,17 +313,6 @@ UDP datagram to the controller can open a door. Put these controllers on an
 isolated VLAN, and treat the push port as untrusted input.
 
 This is useful for validating the firewall and wiring before installation.
-
-## Tests
-
-```bash
-python3 tests/test_api.py
-```
-
-The tests verify packet encoding against the documentation example
-(`0x0D4AB63B` = 223000123) and exercise the client against a simulated
-controller: accepted opening, refused opening, timeout with retries, ignored
-response from another controller, and complete discovery.
 
 ## Releases
 

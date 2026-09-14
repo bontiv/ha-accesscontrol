@@ -62,6 +62,7 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.LOCK,
+    Platform.NUMBER,
     Platform.SENSOR,
 ]
 
@@ -163,10 +164,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entries: dict = hass.data.get(DOMAIN, {})
     coordinator: UhppoteCoordinator | None = entries.pop(entry.entry_id, None)
-    if coordinator is not None and entry.options.get(
-        CONF_PUSH_ENABLED, DEFAULT_PUSH_ENABLED
-    ):
-        await _async_stop_push(hass, entry, coordinator)
+    if coordinator is not None:
+        if entry.options.get(CONF_PUSH_ENABLED, DEFAULT_PUSH_ENABLED):
+            await _async_stop_push(hass, entry, coordinator)
+        await coordinator.async_shutdown()
 
     if not entries:
         hass.data.pop(DOMAIN, None)
@@ -347,6 +348,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
         await coordinator.async_request_refresh()
+        coordinator.async_schedule_pulse_refresh(call.data[ATTR_DOOR])
 
     async def _handle_set_door_mode(call: ServiceCall) -> None:
         coordinator = _resolve_coordinator(hass, call.data.get(ATTR_SERIAL))

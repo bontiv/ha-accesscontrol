@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run Home Assistant with this integration loaded, for manual testing.
+#
+# The configuration directory is created on first run and is not tracked by
+# git, so it can be deleted at any time to start from scratch.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+CONFIG_DIR="${HA_CONFIG_DIR:-config}"
+
+if [ ! -f "$CONFIG_DIR/configuration.yaml" ]; then
+    echo "Creating a fresh Home Assistant configuration in $CONFIG_DIR..."
+    mkdir -p "$CONFIG_DIR"
+    hass --config "$CONFIG_DIR" --script ensure_config
+    cat >> "$CONFIG_DIR/configuration.yaml" <<'YAML'
+
+logger:
+  default: info
+  logs:
+    custom_components.ha_accesscontrol: debug
+YAML
+fi
+
+# Home Assistant loads custom integrations from <config>/custom_components,
+# so point that at the working tree rather than copying files around.
+ln -sfn "$PWD/custom_components" "$CONFIG_DIR/custom_components"
+
+echo "Starting Home Assistant on http://localhost:8123"
+exec hass --config "$CONFIG_DIR" --debug

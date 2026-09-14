@@ -7,7 +7,7 @@ our own reading of the specification tables.
 
 from __future__ import annotations
 
-from conftest import hexpkt
+from .conftest import hexpkt
 
 # Serial 0x0DB5851D = 229999901, a two-door controller.
 

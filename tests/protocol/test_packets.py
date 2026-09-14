@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pytest
 import uhppote_api as api
-from conftest import SERIAL
+from .conftest import SERIAL
 
 # ------------------------------------------------------------------ framing
 

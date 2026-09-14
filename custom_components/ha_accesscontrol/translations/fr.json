@@ -72,11 +72,19 @@
     "button": {
       "open_door": {
         "name": "Ouvrir la porte {door}"
+      },
+      "sync_time": {
+        "name": "Synchroniser l'horloge"
       }
     },
     "lock": {
       "door": {
         "name": "Porte {door}"
+      }
+    },
+    "number": {
+      "open_delay": {
+        "name": "Temporisation d'ouverture porte {door}"
       }
     },
     "sensor": {

@@ -36,6 +36,8 @@ dist/
 Thumbs.db
 
 # Home Assistant
+# Local test configuration created by scripts/develop
+config/
 .storage/
 .homeassistant/
 *.log
@@ -44,3 +46,4 @@ secrets.yaml
 
 # Private files
 private/
+.kilo/

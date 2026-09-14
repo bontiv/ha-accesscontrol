@@ -107,6 +107,8 @@ class UhppoteLock(UhppoteEntity, LockEntity):
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_request_refresh()
+        # Catch the relay falling back at the end of the pulse.
+        self.coordinator.async_schedule_pulse_refresh(self._door)
 
     async def _async_set_mode(self, mode: int) -> None:
         try:

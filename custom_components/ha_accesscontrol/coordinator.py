@@ -6,7 +6,8 @@ import logging
 from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -61,6 +62,7 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         self.door_configs: dict[int, DoorConfig] = {}
         self._last_record_index: int | None = None
         self._push_active = False
+        self._pulse_timers: dict[int, CALLBACK_TYPE] = {}
 
     @property
     def serial(self) -> int:
@@ -145,13 +147,10 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         """Change a door's control mode, preserving its open delay.
 
         Function 0x80 writes the mode and the delay in a single packet, so the
-        cached delay must be sent back or it would be overwritten.
+        current delay must be read and sent back or it would be overwritten.
         """
-        known = self.door_configs.get(door)
-        if known is None:
-            known = await self.controller.get_door_config(door)
-
-        updated = await self.controller.set_door_config(door, mode, known.delay)
+        current = await self.controller.get_door_config(door)
+        updated = await self.controller.set_door_config(door, mode, current.delay)
         self.door_configs[door] = updated
         _LOGGER.debug(
             "Door %s on controller %s switched to mode %s",
@@ -163,10 +162,44 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
 
     async def async_set_door_delay(self, door: int, delay: int) -> None:
         """Change a door's open delay, preserving its control mode."""
-        known = self.door_configs.get(door)
-        if known is None:
-            known = await self.controller.get_door_config(door)
-
-        updated = await self.controller.set_door_config(door, known.mode, delay)
+        current = await self.controller.get_door_config(door)
+        updated = await self.controller.set_door_config(door, current.mode, delay)
         self.door_configs[door] = updated
         await self.async_request_refresh()
+
+    def open_delay(self, door: int) -> int | None:
+        """Return the cached open delay of a door, in seconds."""
+        config = self.door_configs.get(door)
+        return None if config is None else config.delay
+
+    # ---------------------------------------------------------- open pulse
+
+    @callback
+    def async_schedule_pulse_refresh(self, door: int) -> None:
+        """Refresh once an open pulse has elapsed.
+
+        A remote open releases the relay for the door's configured delay. Now
+        that the delay is known, the relay sensor and the lock state can settle
+        as soon as it falls back, instead of waiting for the next poll.
+        """
+        delay = self.open_delay(door)
+        if delay is None:
+            return
+
+        if (cancel := self._pulse_timers.pop(door, None)) is not None:
+            cancel()
+
+        async def _settled(_now) -> None:
+            self._pulse_timers.pop(door, None)
+            # Not async_request_refresh: its debouncer would swallow this one
+            # right after the refresh that followed the open command.
+            await self.async_refresh()
+
+        self._pulse_timers[door] = async_call_later(self.hass, delay + 1, _settled)
+
+    async def async_shutdown(self) -> None:
+        """Cancel pending pulse timers before the coordinator goes away."""
+        for cancel in self._pulse_timers.values():
+            cancel()
+        self._pulse_timers.clear()
+        await super().async_shutdown()

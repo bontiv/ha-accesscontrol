@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 import uhppote_api as api
-from captures import STATUS_RECENT
-from conftest import DOC_SERIAL, SERIAL
+from .captures import STATUS_RECENT
+from .conftest import DOC_SERIAL, SERIAL
 
 # --------------------------------------------------------------- open door
 
@@ -131,6 +131,37 @@ async def test_door_config_roundtrip(fake_controller, connect) -> None:
     assert fake_controller.door_config[1] == (api.DOOR_MODE_CONTROLLED, 3), (
         "other doors must be left untouched"
     )
+
+
+async def test_set_door_config_carries_both_fields(fake_controller, connect) -> None:
+    """0x80 writes mode and delay together, so each write must resend both.
+
+    This is what the open-delay number and the lock entity rely on: read the
+    field they are not changing, then send it back untouched.
+    """
+    client = connect(fake_controller)
+    await client.set_door_config(1, api.DOOR_MODE_NORMALLY_CLOSED, 3)
+
+    # Change only the delay, the way the open-delay number entity does.
+    current = await client.get_door_config(1)
+    updated = await client.set_door_config(1, current.mode, 12)
+
+    assert updated == api.DoorConfig(
+        door=1, mode=api.DOOR_MODE_NORMALLY_CLOSED, delay=12
+    )
+    assert fake_controller.door_config[1] == (api.DOOR_MODE_NORMALLY_CLOSED, 12)
+
+
+@pytest.mark.parametrize("delay", [0, 1, 3, 254, 255])
+async def test_set_door_config_accepts_the_full_delay_range(
+    fake_controller, connect, delay: int
+) -> None:
+    """The delay is a single byte, so the whole 0-255 range is valid."""
+    updated = await connect(fake_controller).set_door_config(
+        1, api.DOOR_MODE_CONTROLLED, delay
+    )
+
+    assert updated.delay == delay
 
 
 @pytest.mark.parametrize(

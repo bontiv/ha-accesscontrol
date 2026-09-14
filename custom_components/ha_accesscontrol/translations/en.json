@@ -72,11 +72,19 @@
     "button": {
       "open_door": {
         "name": "Open door {door}"
+      },
+      "sync_time": {
+        "name": "Synchronise clock"
       }
     },
     "lock": {
       "door": {
         "name": "Door {door}"
+      }
+    },
+    "number": {
+      "open_delay": {
+        "name": "Door {door} open delay"
       }
     },
     "sensor": {

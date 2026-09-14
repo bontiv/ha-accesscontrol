@@ -1,12 +1,14 @@
-"""Open-door buttons for UHPPOTE controllers."""
+"""Buttons for UHPPOTE controllers."""
 
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .api import UhppoteError
 from .const import DOMAIN
@@ -19,13 +21,39 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create one open-door button per door."""
+    """Create controller and door buttons."""
     coordinator: UhppoteCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities(
-        UhppoteOpenDoorButton(coordinator, door)
-        for door in range(1, coordinator.doors + 1)
+        [
+            *(
+                UhppoteOpenDoorButton(coordinator, door)
+                for door in range(1, coordinator.doors + 1)
+            ),
+            UhppoteSyncTimeButton(coordinator),
+        ]
     )
+
+
+class UhppoteSyncTimeButton(UhppoteEntity, ButtonEntity):
+    """Write Home Assistant's current local time to the controller (function 0x30)."""
+
+    _attr_translation_key = "sync_time"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:clock-sync"
+
+    def __init__(self, coordinator: UhppoteCoordinator) -> None:
+        super().__init__(coordinator, "sync_time")
+
+    async def async_press(self) -> None:
+        """Send the current local time to the controller."""
+        try:
+            await self.coordinator.controller.set_time(
+                dt_util.now().replace(tzinfo=None)
+            )
+        except UhppoteError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
 
 
 class UhppoteOpenDoorButton(UhppoteEntity, ButtonEntity):
@@ -46,3 +74,5 @@ class UhppoteOpenDoorButton(UhppoteEntity, ButtonEntity):
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_request_refresh()
+        # Catch the relay falling back at the end of the pulse.
+        self.coordinator.async_schedule_pulse_refresh(self._door)

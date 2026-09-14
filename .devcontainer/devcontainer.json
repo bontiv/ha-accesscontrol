@@ -1,0 +1,49 @@
+{
+  "name": "HA Access Controller",
+  // Python 3.12 is not a preference: pytest-homeassistant-custom-component
+  // pins lru-dict 1.3.0, which has no wheel for 3.13 and does not build there.
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  // The interpreter directory is root-owned on this image, so pip installs
+  // console scripts (pytest, hass, ...) into ~/.local/bin. Put it on PATH.
+  "remoteEnv": {
+    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+  },
+  "forwardPorts": [8123],
+  "portsAttributes": {
+    "8123": {
+      "label": "Home Assistant",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestArgs": ["tests"],
+        "python.analysis.extraPaths": ["."],
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        "[python]": {
+          "editor.rulers": [88]
+        },
+        "[json][jsonc][yaml]": {
+          "editor.tabSize": 2
+        },
+        "yaml.schemas": {
+          "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml"
+        }
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}
