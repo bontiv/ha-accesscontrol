@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +12,13 @@ from homeassistant.helpers.event import async_call_later, async_track_point_in_u
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import ControllerStatus, DoorConfig, UhppoteController, UhppoteError
+from .api import (
+    DOOR_MODE_CONTROLLED,
+    ControllerStatus,
+    DoorConfig,
+    UhppoteController,
+    UhppoteError,
+)
 from .const import (
     CLOCK_DRIFT_THRESHOLD,
     CODE_TO_MODE,
@@ -71,6 +78,9 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         self.controller = controller
         self.doors = doors
         self.door_configs: dict[int, DoorConfig] = {}
+        # Open delays taken from a reading made in online control mode, which
+        # is the only mode in which the controller reports a meaningful one.
+        self._delays: dict[int, int] = {}
         self._last_record_index: int | None = None
         self._push_active = False
         self._pulse_timers: dict[int, CALLBACK_TYPE] = {}
@@ -141,6 +151,27 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
 
     # ---------------------------------------------------------- door config
 
+    def _remember(self, config: DoorConfig) -> DoorConfig:
+        """Cache a door configuration, keeping its open delay trustworthy.
+
+        The delay byte only carries a meaning in online control mode. A door
+        held normally open is not released on a delay at all, and a controller
+        in that mode reports the field as zero -- so taking it at face value,
+        and later sending it back alongside a new mode, silently destroys the
+        configured pulse length.
+
+        The delay is therefore only learned from a reading made in online
+        mode. Any other reading keeps the last known good value, and only a
+        door never yet seen online falls back to what the controller says.
+        """
+        if config.mode == DOOR_MODE_CONTROLLED:
+            self._delays[config.door] = config.delay
+
+        delay = self._delays.get(config.door, config.delay)
+        stored = config if delay == config.delay else replace(config, delay=delay)
+        self.door_configs[config.door] = stored
+        return stored
+
     async def async_load_door_configs(self) -> None:
         """Read every door's control mode and delay (function 0x82).
 
@@ -149,7 +180,7 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         """
         for door in range(1, self.doors + 1):
             try:
-                self.door_configs[door] = await self.controller.get_door_config(door)
+                self._remember(await self.controller.get_door_config(door))
             except UhppoteError as err:
                 _LOGGER.warning(
                     "Unable to read the configuration of door %s on controller %s: %s",
@@ -161,12 +192,21 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
     async def async_set_door_mode(self, door: int, mode: int) -> None:
         """Change a door's control mode, preserving its open delay.
 
-        Function 0x80 writes the mode and the delay in a single packet, so the
-        current delay must be read and sent back or it would be overwritten.
+        Function 0x80 writes the mode and the delay in a single packet, so a
+        delay has to be sent along or it would be overwritten. It comes from
+        the cache rather than from a fresh reading: the door may currently be
+        held normally open, and the controller reports no usable delay then.
+        Reading it back would zero the configuration the moment the door is
+        returned to online control.
         """
-        current = await self.controller.get_door_config(door)
-        updated = await self.controller.set_door_config(door, mode, current.delay)
-        self.door_configs[door] = updated
+        delay = self.open_delay(door)
+        if delay is None:
+            # A door that has never been read: nothing better to send back.
+            delay = (await self.controller.get_door_config(door)).delay
+
+        updated = self._remember(
+            await self.controller.set_door_config(door, mode, delay)
+        )
         _LOGGER.debug(
             "Door %s on controller %s switched to mode %s",
             door,
@@ -179,7 +219,10 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         """Change a door's open delay, preserving its control mode."""
         current = await self.controller.get_door_config(door)
         updated = await self.controller.set_door_config(door, current.mode, delay)
-        self.door_configs[door] = updated
+        # An explicit instruction, so it is trusted whatever the current mode:
+        # setting the delay of a door held open must survive it being closed.
+        self._delays[door] = delay
+        self._remember(updated)
         await self.async_request_refresh()
 
     def open_delay(self, door: int) -> int | None:

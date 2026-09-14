@@ -12,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import (
-    DOOR_MODE_NORMALLY_CLOSED,
+    DOOR_MODE_CONTROLLED,
     DOOR_MODE_NORMALLY_OPEN,
     UhppoteError,
 )
@@ -42,7 +42,7 @@ class UhppoteLock(UhppoteEntity, LockEntity):
     The controller offers two independent notions of "open":
 
     * the *control mode* (function 0x82) is persistent — normally open,
-      normally closed, or controlled by cards and buttons;
+      normally closed, or online control by cards and buttons;
     * the *relay* (byte 49 of the status packet) is momentary and falls back
       after the configured open delay.
 
@@ -120,8 +120,15 @@ class UhppoteLock(UhppoteEntity, LockEntity):
         return attributes
 
     async def async_lock(self, **kwargs: Any) -> None:
-        """Hold the door normally closed (mode 2)."""
-        await self._async_set_mode(DOOR_MODE_NORMALLY_CLOSED)
+        """Return the door to online control (mode 3).
+
+        Not normally closed (mode 2): that mode locks the door outright, with
+        cards and remote opening both ignored, which is a lockdown rather than
+        the everyday state. Locking here means "no longer held open", so the
+        door goes back to being governed by cards, buttons and schedules.
+        Mode 2 stays reachable through the set_door_mode action, deliberately.
+        """
+        await self._async_set_mode(DOOR_MODE_CONTROLLED)
 
     async def async_unlock(self, **kwargs: Any) -> None:
         """Hold the door normally open (mode 1).

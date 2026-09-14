@@ -296,12 +296,19 @@ async def test_source_is_reported_in_the_attributes(
 # ---------------------------------------------------------------- commands
 
 
-async def test_lock_switches_to_normally_closed(
+async def test_lock_returns_to_online_control(
     hass: HomeAssistant, entry, controller, lock_1
 ) -> None:
+    """Locking means "no longer held open", never a lockdown.
+
+    Normally closed ignores cards and refuses remote opening, so reaching it
+    by tapping the lock tile would take the door out of service silently:
+    the entity reads ``locked`` in that mode exactly as it does in online
+    control.
+    """
     await _call(hass, "lock", lock_1)
 
-    assert controller.door_configs[1].mode == DOOR_MODE_NORMALLY_CLOSED
+    assert controller.door_configs[1].mode == DOOR_MODE_CONTROLLED
     assert hass.states.get(lock_1).state == STATE_LOCKED
 
 
@@ -323,13 +330,39 @@ async def test_mode_changes_preserve_the_open_delay(
     )
 
     await setup_entry()
-    controller.door_configs[1] = DoorConfig(
-        door=1, mode=DOOR_MODE_CONTROLLED, delay=23
-    )
     await _call(hass, "unlock", entity_id_for("lock", "223000123_door_1_lock"))
 
     assert controller.door_configs[1] == DoorConfig(
-        door=1, mode=DOOR_MODE_NORMALLY_OPEN, delay=23
+        door=1, mode=DOOR_MODE_NORMALLY_OPEN, delay=17
+    )
+
+
+async def test_unlock_then_lock_restores_the_open_delay(
+    hass: HomeAssistant, setup_entry, controller, entity_id_for
+) -> None:
+    """The round trip must not cost the door its pulse length.
+
+    A controller held normally open reports no usable open delay, so the
+    delay read back at that point is worthless. Sending it along with the
+    next mode would write it into the configuration for good, leaving a
+    relay that barely clicks.
+    """
+    controller.door_configs[1] = DoorConfig(
+        door=1, mode=DOOR_MODE_CONTROLLED, delay=17
+    )
+    await setup_entry()
+    lock_1 = entity_id_for("lock", "223000123_door_1_lock")
+
+    await _call(hass, "unlock", lock_1)
+    # What the firmware answers once the door is held open.
+    controller.door_configs[1] = DoorConfig(
+        door=1, mode=DOOR_MODE_NORMALLY_OPEN, delay=0
+    )
+
+    await _call(hass, "lock", lock_1)
+
+    assert controller.door_configs[1] == DoorConfig(
+        door=1, mode=DOOR_MODE_CONTROLLED, delay=17
     )
 
 

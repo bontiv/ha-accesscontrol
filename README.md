@@ -100,7 +100,11 @@ Home Assistant has a state for each, so both are visible on the one entity:
 | `unlocked` | held normally open by configuration, across restarts |
 | `open` | the relay is released right now |
 
-`lock.lock` and `lock.unlock` drive the *control mode*. `lock.open` sends a
+`lock.lock` and `lock.unlock` drive the *control mode*. `lock.unlock` holds
+the door normally open; `lock.lock` returns it to **online control**, not to
+normally closed—that mode ignores cards and refuses remote opening, which is a
+lockdown rather than the everyday state, and it stays reachable only through
+the `set_door_mode` action. `lock.open` sends a
 one-shot `0x40` pulse and leaves the mode alone: the entity reads `open` for
 the length of the pulse, then returns to `locked`. It never passes through
 `unlocked`, which would wrongly suggest the door had been reconfigured to stay
@@ -146,9 +150,16 @@ the integration knows that value, it schedules a state refresh just after the
 relay is due to fall back, instead of leaving the relay sensor stale until the
 next poll.
 
-> Function `0x80` writes the control mode and the open delay in the same packet.
-> The integration always reads back the field it is not changing and sends it
-> untouched, so setting the delay never disturbs the mode, and vice versa.
+> Function `0x80` writes the control mode and the open delay in the same
+> packet, so the field that is not being changed has to be sent along.
+>
+> The mode is read back from the controller, which always reports it
+> faithfully. The delay is **not**: it only carries a meaning in online
+> control mode, and a door held normally open reports it as zero. Reading it
+> back there and resending it would write that zero into the configuration for
+> good, leaving a relay that barely clicks. The integration therefore only
+> learns the delay from a reading taken in online mode, and otherwise resends
+> the last known good value.
 
 > **`lock.unlock` is persistent.** It holds the door normally open in the
 > controller's own configuration, across a Home Assistant restart, until it is
