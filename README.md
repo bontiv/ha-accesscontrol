@@ -18,14 +18,6 @@ Supported functions:
 | Read receiving server | `0x92` | push channel takeover check |
 | Controller discovery | `0x94` | configuration flow + `ha_accesscontrol.discover` service |
 
-## Why use an integration instead of `python_script`?
-
-Home Assistant's [`python_script`](https://www.home-assistant.io/integrations/python_script/)
-integration runs in a sandbox where imports are forbidden. The `socket` module
-is therefore unavailable, making it impossible to send a UDP datagram from a
-`python_script`. A custom integration has network and `asyncio` access and
-integrates with the configuration UI.
-
 ## Installation
 
 ### HACS - Easy install with updates
