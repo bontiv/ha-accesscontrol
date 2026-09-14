@@ -21,7 +21,7 @@ from pathlib import Path
 # which is not required here.
 _spec = importlib.util.spec_from_file_location(
     "uhppote_api",
-    Path(__file__).resolve().parent.parent / "custom_components" / "ha-accesscontrol" / "api.py",
+    Path(__file__).resolve().parent.parent / "custom_components" / "ha_accesscontrol" / "api.py",
 )
 _api = importlib.util.module_from_spec(_spec)
 sys.modules["uhppote_api"] = _api

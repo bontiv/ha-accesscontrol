@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Final
 
-DOMAIN: Final = "uhppote"
+DOMAIN: Final = "ha_accesscontrol"
 
 CONF_SERIAL: Final = "serial"
 CONF_DOORS: Final = "doors"

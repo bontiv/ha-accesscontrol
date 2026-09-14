@@ -1,7 +1,9 @@
 {
-  "domain": "ha-accesscontrol",
+  "domain": "ha_accesscontrol",
   "name": "HA Access Controller",
-  "codeowners": [],
+  "codeowners": [
+    "@bontiv"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/bontiv/ha-accesscontrol",
   "integration_type": "device",

@@ -8,8 +8,8 @@ Supported functions:
 
 | Function | Code | Usage |
 |---|---|---|
-| Remote door opening | `0x40` | `button` entities + `uhppote.open_door` service |
-| Controller discovery | `0x94` | configuration flow + `uhppote.discover` service |
+| Remote door opening | `0x40` | `button` entities + `ha_accesscontrol.open_door` service |
+| Controller discovery | `0x94` | configuration flow + `ha_accesscontrol.discover` service |
 
 ## Why use an integration instead of `python_script`?
 
@@ -21,13 +21,13 @@ integrates with the configuration UI.
 
 ## Installation
 
-1. Copy `custom_components/ha-accesscontrol/` into the
+1. Copy `custom_components/ha_accesscontrol/` into the
    `config/custom_components/` directory of your Home Assistant installation:
 
    ```text
    config/
    └── custom_components/
-       └── ha-accesscontrol/
+       └── ha_accesscontrol/
            ├── __init__.py
            ├── api.py
            ├── button.py
@@ -41,10 +41,12 @@ integrates with the configuration UI.
                └── fr.json
    ```
 
-2. Restart Home Assistant.
-3. Open **Settings → Devices & services → Add integration → UHPPOTE Access
+2. If you installed a prerelease copy under `custom_components/ha-accesscontrol/`,
+   remove that old directory before reinstalling.
+3. Restart Home Assistant.
+4. Open **Settings → Devices & services → Add integration → UHPPOTE Access
    Controller**.
-4. Choose **Search the network** (`0x94` broadcast) or **Enter the address
+5. Choose **Search the network** (`0x94` broadcast) or **Enter the address
    manually** (IP address and the serial number printed on the enclosure).
 
 Minimum Home Assistant version: **2024.11**.
@@ -66,21 +68,21 @@ and retry count can then be changed through **Configure** on the integration.
 
 ## Services
 
-### `ha-accesscontrol.open_door`
+### `ha_accesscontrol.open_door`
 
 ```yaml
-action: ha-accesscontrol.open_door
+action: ha_accesscontrol.open_door
 data:
   serial: 223000123  # optional when only one controller is configured
   door: 1
 ```
 
-### `ha-accesscontrol.discover`
+### `ha_accesscontrol.discover`
 
 Returns a service response and requires `response_variable`:
 
 ```yaml
-action: ha-accesscontrol.discover
+action: ha_accesscontrol.discover
 data:
   timeout: 3
   broadcast_address: 192.168.1.255
@@ -129,7 +131,7 @@ script:
   open_gate:
     alias: "Open the gate"
     sequence:
-      - action: ha-accesscontrol.open_door
+      - action: ha_accesscontrol.open_door
         data:
           serial: 223000123
           door: 2
@@ -169,6 +171,13 @@ The tests verify packet encoding against the documentation example
 (`0x0D4AB63B` = 223000123) and exercise the client against a simulated
 controller: accepted opening, refused opening, timeout with retries, ignored
 response from another controller, and complete discovery.
+
+## Releases
+
+Run the **Release** workflow from `main` and provide a version such as `1.1.0`
+or `1.1.0-beta.1`. Repository Actions must have write permission, and branch
+protection must allow `github-actions[bot]` to push the release commit to
+`main`.
 
 ## Protocol notes
 

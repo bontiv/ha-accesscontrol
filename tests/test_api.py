@@ -13,7 +13,7 @@ _spec = _ilu.spec_from_file_location(
     "uhppote_api",
     _Path(__file__).resolve().parent.parent
     / "custom_components"
-    / "ha-accesscontrol"
+    / "ha_accesscontrol"
     / "api.py",
 )
 _api = _ilu.module_from_spec(_spec)
