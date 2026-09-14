@@ -28,6 +28,14 @@ integrates with the configuration UI.
 
 ## Installation
 
+### HACS - Easy install with updates
+
+Add this integration with HACS:
+
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bontiv&repository=ha-accesscontrol&category=integration)
+
+### Manual installation
+
 1. Copy `custom_components/ha_accesscontrol/` into the
    `config/custom_components/` directory of your Home Assistant installation:
 
