@@ -20,18 +20,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create controller and door buttons."""
+    """Create the controller buttons."""
     coordinator: UhppoteCoordinator = hass.data[DOMAIN][entry.entry_id]
-
-    async_add_entities(
-        [
-            *(
-                UhppoteOpenDoorButton(coordinator, door)
-                for door in range(1, coordinator.doors + 1)
-            ),
-            UhppoteSyncTimeButton(coordinator),
-        ]
-    )
+    async_add_entities([UhppoteSyncTimeButton(coordinator)])
 
 
 class UhppoteSyncTimeButton(UhppoteEntity, ButtonEntity):
@@ -50,25 +41,3 @@ class UhppoteSyncTimeButton(UhppoteEntity, ButtonEntity):
             await self.coordinator.async_sync_clock()
         except UhppoteError as err:
             raise HomeAssistantError(str(err)) from err
-
-
-class UhppoteOpenDoorButton(UhppoteEntity, ButtonEntity):
-    """Trigger remote door opening (function 0x40)."""
-
-    _attr_translation_key = "open_door"
-    _attr_icon = "mdi:door-open"
-
-    def __init__(self, coordinator: UhppoteCoordinator, door: int) -> None:
-        super().__init__(coordinator, f"door_{door}_open")
-        self._door = door
-        self._attr_translation_placeholders = {"door": str(door)}
-
-    async def async_press(self) -> None:
-        """Send the open-door command."""
-        try:
-            await self.coordinator.controller.open_door(self._door)
-        except UhppoteError as err:
-            raise HomeAssistantError(str(err)) from err
-        await self.coordinator.async_request_refresh()
-        # Catch the relay falling back at the end of the pulse.
-        self.coordinator.async_schedule_pulse_refresh(self._door)

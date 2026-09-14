@@ -48,6 +48,7 @@
           "retries": "Tentatives supplémentaires",
           "scan_interval": "Intervalle d'interrogation (s)",
           "doors": "Nombre de portes",
+          "open_source": "Source de l'état « ouvert »",
           "sync_clock": "Maintenir l'horloge du contrôleur à l'heure",
           "push_enabled": "Laisser le contrôleur envoyer les enregistrements",
           "push_port": "Port UDP local de réception",
@@ -78,9 +79,6 @@
       }
     },
     "button": {
-      "open_door": {
-        "name": "Ouvrir la porte {door}"
-      },
       "sync_time": {
         "name": "Synchroniser l'horloge"
       }
@@ -199,6 +197,12 @@
         "2": "2 portes",
         "3": "3 portes",
         "4": "4 portes"
+      }
+    },
+    "open_source": {
+      "options": {
+        "relay": "Relais — ce que le contrôleur a commandé",
+        "door_contact": "Contact de porte — si le vantail a réellement bougé"
       }
     }
   }

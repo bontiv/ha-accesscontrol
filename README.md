@@ -11,7 +11,7 @@ Supported functions:
 | Controller status | `0x20` | `binary_sensor` and `sensor` entities (polled and pushed) |
 | Set the clock | `0x30` | automatic daylight-saving resync, clock button, `ha_accesscontrol.sync_time` |
 | Read the clock | `0x32` | clock drift sensor |
-| Remote door opening | `0x40` | `button` entities, `lock.open`, `ha_accesscontrol.open_door` |
+| Remote door opening | `0x40` | `lock.open` + `ha_accesscontrol.open_door` service |
 | Set door control | `0x80` | `lock` entities + `ha_accesscontrol.set_door_mode` |
 | Read door control | `0x82` | `lock` state and attributes |
 | Set receiving server | `0x90` | push channel (`local_push`) |
@@ -66,7 +66,6 @@ Minimum Home Assistant version: **2024.11**.
 For each controller, the integration creates one device carrying, per door:
 
 - `lock.controller_223000123_door_1` — the door control mode
-- `button.controller_223000123_open_door_1` — a one-shot release
 - `binary_sensor.<controller>_door_1_contact` — the door sensor (`device_class: door`)
 - `binary_sensor.<controller>_door_1_relay` — the momentary relay (`device_class: lock`)
 - `binary_sensor.<controller>_door_1_button` — the request-to-exit button (diagnostic)
@@ -93,10 +92,53 @@ The controller has two independent notions of "open":
   controlled by cards, buttons and schedules;
 - the **relay** is momentary and falls back after the configured open delay.
 
-`lock.lock` and `lock.unlock` drive the *control mode*, so the entity state is
-stable enough to use in automations. `lock.open` sends a one-shot `0x40` pulse
-and leaves the mode alone. The momentary relay is published as its own binary
-sensor, which is what flips for the three seconds of a badge read.
+Home Assistant has a state for each, so both are visible on the one entity:
+
+| State | Meaning |
+|---|---|
+| `locked` | normally closed, or controlled by cards, buttons and schedules |
+| `unlocked` | held normally open by configuration, across restarts |
+| `open` | the relay is released right now |
+
+`lock.lock` and `lock.unlock` drive the *control mode*. `lock.open` sends a
+one-shot `0x40` pulse and leaves the mode alone: the entity reads `open` for
+the length of the pulse, then returns to `locked`. It never passes through
+`unlocked`, which would wrongly suggest the door had been reconfigured to stay
+open.
+
+In normally-open mode the relay is energised permanently; that reads as
+`unlocked`, not `open`, so the two situations stay distinguishable.
+
+### What `open` is based on
+
+**Source of the "open" state** in the options picks the signal:
+
+| Source | `open` means | Good for |
+|---|---|---|
+| `relay` (default) | the controller released the strike | knowing the door was *authorised* to open, even if nobody went through |
+| `door contact` | the magnetic contact reports the leaf ajar | knowing the door is *physically* open, including when it is held or propped |
+
+Both signals stay readable as `relay` and `door_contact` attributes whichever
+one drives the state, so an automation can use the other without changing the
+setting.
+
+> Pick `door contact` only if a contact is actually wired. The controller
+> reports an unconnected input as *open*, so the lock would sit at `open`
+> permanently.
+
+The normally-open exception applies to the relay only: the contact follows the
+leaf, not the configuration, so a door held open by configuration but shut
+still reads `unlocked`.
+
+To open a door in one tap from a dashboard, use the lock tile's built-in
+feature rather than a separate entity:
+
+```yaml
+type: tile
+entity: lock.controller_223000123_door_1
+features:
+  - type: lock-open-door
+```
 
 The pulse length is the door's **open delay**, readable and writable through the
 `number` entity (function `0x82` / `0x80`, `entity_category: config`). Because
@@ -262,9 +304,9 @@ automation:
         subtype: button_1
         device_id: <your_button>
     actions:
-      - action: button.press
+      - action: lock.open
         target:
-          entity_id: button.controller_223000123_open_door_1
+          entity_id: lock.controller_223000123_door_1
 ```
 
 Open through the service:
@@ -288,9 +330,9 @@ script:
   open_the_door:
     alias: "Open the door"
     sequence:
-      - action: button.press
+      - action: lock.open
         target:
-          entity_id: button.controller_223000123_open_door_1
+          entity_id: lock.controller_223000123_door_1
 ```
 
 ## Development container

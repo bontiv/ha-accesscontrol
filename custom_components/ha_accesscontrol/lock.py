@@ -16,7 +16,7 @@ from .api import (
     DOOR_MODE_NORMALLY_OPEN,
     UhppoteError,
 )
-from .const import CODE_TO_MODE, DOMAIN
+from .const import CODE_TO_MODE, DOMAIN, OPEN_SOURCE_DOOR_CONTACT
 from .coordinator import UhppoteCoordinator
 from .entity import UhppoteEntity
 
@@ -46,10 +46,11 @@ class UhppoteLock(UhppoteEntity, LockEntity):
     * the *relay* (byte 49 of the status packet) is momentary and falls back
       after the configured open delay.
 
-    ``is_locked`` follows the control mode, because an entity that flipped for
-    the three seconds of every badge read would be useless in automations. The
-    momentary relay is published separately as a binary sensor, and a one-shot
-    pulse is available through ``lock.open``.
+    Home Assistant has a state for each: ``is_locked`` follows the control
+    mode, and ``is_open`` follows the relay -- or the door contact, if the
+    options say so. So a badge read shows ``open`` for the length of the pulse
+    and then goes back to ``locked``, instead of flipping to ``unlocked``,
+    which would wrongly suggest the door had been reconfigured to stay open.
     """
 
     _attr_translation_key = "door"
@@ -78,14 +79,44 @@ class UhppoteLock(UhppoteEntity, LockEntity):
         return mode != DOOR_MODE_NORMALLY_OPEN
 
     @property
+    def is_open(self) -> bool | None:
+        """Whether the door counts as open right now.
+
+        Home Assistant ranks this above ``is_locked``, so the entity reads
+        ``open`` here rather than ``locked``.
+
+        Which signal answers the question is an option: the relay, meaning
+        what the controller commanded, or the magnetic contact, meaning
+        whether the leaf actually moved.
+        """
+        if self.coordinator.data is None:
+            return None
+
+        index = self._door - 1
+        if self.coordinator.open_source == OPEN_SOURCE_DOOR_CONTACT:
+            return self.coordinator.data.door_sensors[index]
+
+        # The relay is held energised permanently in normally-open mode, which
+        # is what 'unlocked' means. Without this, 'unlocked' would never be
+        # reachable and a door configured to stay open would be
+        # indistinguishable from one released for a few seconds. The contact
+        # needs no such guard: it follows the leaf, not the configuration.
+        if self._mode == DOOR_MODE_NORMALLY_OPEN:
+            return False
+        return self.coordinator.data.relays[index]
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         config = self.coordinator.door_configs.get(self._door)
         attributes: dict[str, Any] = {"door": self._door}
         if config is not None:
             attributes["control_mode"] = CODE_TO_MODE.get(config.mode, config.mode)
             attributes["open_delay"] = config.delay
+        attributes["open_source"] = self.coordinator.open_source
         if self.coordinator.data is not None:
-            attributes["relay"] = self.coordinator.data.relays[self._door - 1]
+            index = self._door - 1
+            attributes["relay"] = self.coordinator.data.relays[index]
+            attributes["door_contact"] = self.coordinator.data.door_sensors[index]
         return attributes
 
     async def async_lock(self, **kwargs: Any) -> None:

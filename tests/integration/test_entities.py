@@ -211,18 +211,16 @@ async def test_delay_write_failure_surfaces_as_an_error(
 # ------------------------------------------------------------------ button
 
 
-async def test_button_opens_the_door(
-    hass: HomeAssistant, entry, controller, entity_id_for
-) -> None:
-    await hass.services.async_call(
-        "button",
-        "press",
-        {ATTR_ENTITY_ID: entity_id_for("button", "223000123_door_2_open")},
-        blocking=True,
-    )
-    await hass.async_block_till_done()
+async def test_no_per_door_button_exists(hass: HomeAssistant, entry) -> None:
+    """Opening a door is lock.open; a second entity for it would be noise."""
+    registry = er.async_get(hass)
+    buttons = [
+        item.unique_id
+        for item in registry.entities.values()
+        if item.domain == "button"
+    ]
 
-    assert controller.opened == [2]
+    assert buttons == ["223000123_sync_time"]
 
 
 async def test_sync_time_button(

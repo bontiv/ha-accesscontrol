@@ -32,6 +32,7 @@ from .const import (
     ATTR_SERIAL,
     CONF_BROADCAST_ADDRESS,
     CONF_DOORS,
+    CONF_OPEN_SOURCE,
     CONF_PUSH_ENABLED,
     CONF_PUSH_INTERVAL,
     CONF_PUSH_PORT,
@@ -41,6 +42,7 @@ from .const import (
     CONF_SYNC_CLOCK,
     CONF_TIMEOUT,
     DEFAULT_BROADCAST_ADDRESS,
+    DEFAULT_OPEN_SOURCE,
     DEFAULT_PORT,
     DEFAULT_PUSH_ENABLED,
     DEFAULT_PUSH_INTERVAL,
@@ -143,6 +145,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         doors=doors,
         scan_interval=_poll_interval(entry),
         sync_clock=entry.options.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK),
+        open_source=entry.options.get(CONF_OPEN_SOURCE, DEFAULT_OPEN_SOURCE),
     )
     await coordinator.async_config_entry_first_refresh()
     await coordinator.async_load_door_configs()

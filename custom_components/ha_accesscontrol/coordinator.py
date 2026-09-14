@@ -15,6 +15,7 @@ from .api import ControllerStatus, DoorConfig, UhppoteController, UhppoteError
 from .const import (
     CLOCK_DRIFT_THRESHOLD,
     CODE_TO_MODE,
+    DEFAULT_OPEN_SOURCE,
     DOMAIN,
     EVENT_RECORD,
     RECORD_TYPES,
@@ -58,6 +59,7 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         doors: int,
         scan_interval: int,
         sync_clock: bool = False,
+        open_source: str = DEFAULT_OPEN_SOURCE,
     ) -> None:
         super().__init__(
             hass,
@@ -73,6 +75,7 @@ class UhppoteCoordinator(DataUpdateCoordinator[ControllerStatus]):
         self._push_active = False
         self._pulse_timers: dict[int, CALLBACK_TYPE] = {}
         self.sync_clock = sync_clock
+        self.open_source = open_source
         self.next_clock_sync: datetime | None = None
         self._clock_timer: CALLBACK_TYPE | None = None
 

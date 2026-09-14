@@ -29,11 +29,12 @@ async def test_setup_creates_the_device_and_its_entities(
     for item in entities:
         by_platform[item.domain] = by_platform.get(item.domain, 0) + 1
 
-    # Two doors: 3 binary sensors + 1 button + 1 lock + 1 number per door,
-    # plus 3 controller-level binary sensors, 7 sensors and the clock button.
+    # Two doors: 3 binary sensors + 1 lock + 1 number per door, plus 3
+    # controller-level binary sensors, 7 sensors and the clock button.
+    # Opening a door is lock.open, not a button of its own.
     assert by_platform == {
         "binary_sensor": 2 * 3 + 3,
-        "button": 2 + 1,
+        "button": 1,
         "lock": 2,
         "number": 2,
         "sensor": 7,

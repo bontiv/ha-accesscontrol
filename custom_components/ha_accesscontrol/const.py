@@ -16,6 +16,7 @@ CONF_PUSH_ENABLED: Final = "push_enabled"
 CONF_PUSH_PORT: Final = "push_port"
 CONF_PUSH_INTERVAL: Final = "push_interval"
 CONF_SYNC_CLOCK: Final = "sync_clock"
+CONF_OPEN_SOURCE: Final = "open_source"
 
 DEFAULT_PORT: Final = 60000
 DEFAULT_DOORS: Final = 4
@@ -34,6 +35,14 @@ DEFAULT_SYNC_CLOCK: Final = True
 # Rewrite the clock when it is off by more than this, in seconds. Catches a
 # transition missed while Home Assistant was down, and plain drift.
 CLOCK_DRIFT_THRESHOLD: Final = 60
+
+# What the "open" state of a lock reflects.
+#   relay        - the electrical release, i.e. what the controller commanded
+#   door_contact - the magnetic contact, i.e. whether the leaf is really open
+OPEN_SOURCE_RELAY: Final = "relay"
+OPEN_SOURCE_DOOR_CONTACT: Final = "door_contact"
+OPEN_SOURCES: Final = (OPEN_SOURCE_RELAY, OPEN_SOURCE_DOOR_CONTACT)
+DEFAULT_OPEN_SOURCE: Final = OPEN_SOURCE_RELAY
 
 SERVICE_OPEN_DOOR: Final = "open_door"
 SERVICE_DISCOVER: Final = "discover"

@@ -14,6 +14,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.ha_accesscontrol.api import ControllerInfo, UhppoteError
 from custom_components.ha_accesscontrol.const import (
     CONF_DOORS,
+    CONF_OPEN_SOURCE,
     CONF_PUSH_ENABLED,
     CONF_PUSH_INTERVAL,
     CONF_PUSH_PORT,
@@ -234,6 +235,7 @@ async def test_options_flow(hass: HomeAssistant, entry) -> None:
             "retries": 1,
             CONF_SCAN_INTERVAL: 25,
             CONF_DOORS: "4",
+            CONF_OPEN_SOURCE: "door_contact",
             CONF_PUSH_ENABLED: True,
             CONF_PUSH_PORT: 60123,
             CONF_PUSH_INTERVAL: 20,
@@ -244,6 +246,7 @@ async def test_options_flow(hass: HomeAssistant, entry) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options[CONF_PUSH_PORT] == 60123
     assert entry.options[CONF_DOORS] == 4
+    assert entry.options[CONF_OPEN_SOURCE] == "door_contact"
 
 
 async def test_options_change_reloads_the_entry(
@@ -258,6 +261,7 @@ async def test_options_change_reloads_the_entry(
             "retries": 2,
             CONF_SCAN_INTERVAL: 10,
             CONF_DOORS: "4",
+            CONF_OPEN_SOURCE: "relay",
             CONF_PUSH_ENABLED: False,
             CONF_PUSH_PORT: 60002,
             CONF_PUSH_INTERVAL: 30,

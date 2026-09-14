@@ -19,6 +19,7 @@ from homeassistant.helpers import config_validation as cv, selector
 from .api import ControllerInfo, UhppoteError, discover, doors_for_serial
 from .const import (
     CONF_DOORS,
+    CONF_OPEN_SOURCE,
     CONF_PUSH_ENABLED,
     CONF_PUSH_INTERVAL,
     CONF_PUSH_PORT,
@@ -28,6 +29,7 @@ from .const import (
     CONF_SYNC_CLOCK,
     CONF_TIMEOUT,
     DEFAULT_BROADCAST_ADDRESS,
+    DEFAULT_OPEN_SOURCE,
     DEFAULT_PORT,
     DEFAULT_PUSH_ENABLED,
     DEFAULT_PUSH_INTERVAL,
@@ -37,6 +39,7 @@ from .const import (
     DEFAULT_SYNC_CLOCK,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    OPEN_SOURCES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,6 +59,16 @@ DOORS_SELECTOR = selector.SelectSelector(
         options=["1", "2", "3", "4"],
         mode=selector.SelectSelectorMode.LIST,
         translation_key="doors",
+    )
+)
+
+
+# Which signal the "open" state of a lock reflects.
+OPEN_SOURCE_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=list(OPEN_SOURCES),
+        mode=selector.SelectSelectorMode.LIST,
+        translation_key="open_source",
     )
 )
 
@@ -204,6 +217,10 @@ class UhppoteOptionsFlow(OptionsFlow):
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3600)),
                 vol.Required(CONF_DOORS, default=str(default_doors)): DOORS_SELECTOR,
+                vol.Required(
+                    CONF_OPEN_SOURCE,
+                    default=options.get(CONF_OPEN_SOURCE, DEFAULT_OPEN_SOURCE),
+                ): OPEN_SOURCE_SELECTOR,
                 vol.Optional(
                     CONF_SYNC_CLOCK,
                     default=options.get(CONF_SYNC_CLOCK, DEFAULT_SYNC_CLOCK),

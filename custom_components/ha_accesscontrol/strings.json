@@ -48,6 +48,7 @@
           "retries": "Extra retries",
           "scan_interval": "Polling interval (s)",
           "doors": "Number of doors",
+          "open_source": "Source of the “open” state",
           "sync_clock": "Keep the controller clock synchronised",
           "push_enabled": "Let the controller push records",
           "push_port": "Local UDP port to receive records",
@@ -78,9 +79,6 @@
       }
     },
     "button": {
-      "open_door": {
-        "name": "Open door {door}"
-      },
       "sync_time": {
         "name": "Synchronise clock"
       }
@@ -199,6 +197,12 @@
         "2": "2 doors",
         "3": "3 doors",
         "4": "4 doors"
+      }
+    },
+    "open_source": {
+      "options": {
+        "relay": "Relay — what the controller commanded",
+        "door_contact": "Door contact — whether the leaf actually moved"
       }
     }
   }

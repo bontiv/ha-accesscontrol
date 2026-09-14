@@ -7,6 +7,7 @@ this whole directory when pytest-homeassistant-custom-component is missing.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -119,6 +120,11 @@ class StubController:
         if self.open_error is not None:
             raise self.open_error
         self.opened.append(door)
+        # A real controller energises the relay for the open delay; a test
+        # that wants the far side of the pulse clears it itself.
+        relays = list(self.status.relays)
+        relays[door - 1] = True
+        self.status = replace(self.status, relays=tuple(relays))
 
     async def get_door_config(self, door: int) -> DoorConfig:
         if door not in self.door_configs:
