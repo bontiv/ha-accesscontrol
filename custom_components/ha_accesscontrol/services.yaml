@@ -26,6 +26,81 @@ open_door:
           min: 1
           max: 4
 
+set_door_mode:
+  name: Set door mode
+  description: >-
+    Changes the control mode of a door (function 0x80). The mode is stored in
+    the controller and survives a Home Assistant restart.
+  fields:
+    serial:
+      name: Serial number
+      description: >-
+        Controller serial number. Optional when only one controller is
+        configured.
+      required: false
+      example: 223000123
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 4294967295
+    door:
+      name: Door
+      description: Door number (1-4).
+      required: true
+      example: 1
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 4
+    mode:
+      name: Control mode
+      description: >-
+        normally_open keeps the door released, normally_closed keeps it locked,
+        and controlled hands it back to cards, buttons and schedules.
+      required: true
+      example: controlled
+      selector:
+        select:
+          options:
+            - normally_open
+            - normally_closed
+            - controlled
+    delay:
+      name: Open delay
+      description: >-
+        Duration in seconds the relay stays released after a valid card. Left
+        unchanged when omitted.
+      required: false
+      example: 3
+      selector:
+        number:
+          mode: box
+          min: 0
+          max: 255
+          unit_of_measurement: s
+
+sync_time:
+  name: Synchronise clock
+  description: >-
+    Writes Home Assistant's current local time to the controller (function
+    0x30). A drifting controller clock invalidates event timestamps and time
+    profiles.
+  fields:
+    serial:
+      name: Serial number
+      description: >-
+        Controller serial number. Optional when only one controller is
+        configured.
+      required: false
+      example: 223000123
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 4294967295
+
 discover:
   name: Discover controllers
   description: >-

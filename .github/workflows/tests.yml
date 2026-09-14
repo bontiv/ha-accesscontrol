@@ -32,5 +32,10 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        # PEP 735 dependency groups, declared in pyproject.toml.
+        run: |
+          python -m pip install --upgrade "pip>=25.1"
+          python -m pip install --group test
       - name: Run protocol tests
-        run: python tests/test_api.py
+        run: python -m pytest

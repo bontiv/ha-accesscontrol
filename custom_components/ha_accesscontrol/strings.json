@@ -11,10 +11,9 @@
       },
       "discovery": {
         "title": "Controllers found",
-        "description": "Select the controller to add.",
+        "description": "Select the controller to add. The number of doors is derived from the serial number and can be changed later in the options.",
         "data": {
-          "serial": "Controller",
-          "doors": "Number of doors"
+          "serial": "Controller"
         }
       },
       "manual": {
@@ -23,8 +22,7 @@
         "data": {
           "host": "IP address",
           "serial": "Serial number",
-          "port": "UDP port",
-          "doors": "Number of doors"
+          "port": "UDP port"
         }
       }
     },
@@ -37,10 +35,82 @@
     "step": {
       "init": {
         "title": "Communication settings",
+        "description": "Pushing makes the controller send records as they happen. A controller stores a single receiving server, so enabling it replaces any other software currently registered.",
         "data": {
           "timeout": "Reply timeout (s)",
-          "retries": "Extra retries"
+          "retries": "Extra retries",
+          "scan_interval": "Polling interval (s)",
+          "doors": "Number of doors",
+          "push_enabled": "Let the controller push records",
+          "push_port": "Local UDP port to receive records",
+          "push_interval": "Heartbeat interval (s, 0 = records only)"
         }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "door_contact": {
+        "name": "Door {door} contact"
+      },
+      "door_button": {
+        "name": "Door {door} button"
+      },
+      "door_relay": {
+        "name": "Door {door} relay"
+      },
+      "fire": {
+        "name": "Fire alarm"
+      },
+      "forced_lock": {
+        "name": "Forced lock"
+      },
+      "error": {
+        "name": "Controller error"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Open door {door}"
+      }
+    },
+    "lock": {
+      "door": {
+        "name": "Door {door}"
+      }
+    },
+    "sensor": {
+      "last_card": {
+        "name": "Last card"
+      },
+      "last_door": {
+        "name": "Last door"
+      },
+      "last_direction": {
+        "name": "Last direction",
+        "state": {
+          "in": "In",
+          "out": "Out"
+        }
+      },
+      "last_record_type": {
+        "name": "Last record type",
+        "state": {
+          "none": "None",
+          "card": "Card",
+          "door": "Door",
+          "alarm": "Alarm",
+          "overwritten": "Overwritten"
+        }
+      },
+      "last_event_time": {
+        "name": "Last event"
+      },
+      "last_record_index": {
+        "name": "Last record index"
+      },
+      "clock_drift": {
+        "name": "Clock drift"
       }
     }
   },
@@ -56,6 +126,38 @@
         "door": {
           "name": "Door",
           "description": "Door number to open (1-4)."
+        }
+      }
+    },
+    "set_door_mode": {
+      "name": "Set door mode",
+      "description": "Changes the control mode of a door. The mode is stored in the controller.",
+      "fields": {
+        "serial": {
+          "name": "Serial number",
+          "description": "Controller serial number."
+        },
+        "door": {
+          "name": "Door",
+          "description": "Door number (1-4)."
+        },
+        "mode": {
+          "name": "Control mode",
+          "description": "normally_open, normally_closed or controlled."
+        },
+        "delay": {
+          "name": "Open delay",
+          "description": "Relay release duration in seconds. Left unchanged when omitted."
+        }
+      }
+    },
+    "sync_time": {
+      "name": "Synchronise clock",
+      "description": "Writes Home Assistant's current local time to the controller.",
+      "fields": {
+        "serial": {
+          "name": "Serial number",
+          "description": "Controller serial number."
         }
       }
     },

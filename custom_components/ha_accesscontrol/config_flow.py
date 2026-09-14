@@ -16,16 +16,23 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 
-from .api import ControllerInfo, UhppoteError, discover
+from .api import ControllerInfo, UhppoteError, discover, doors_for_serial
 from .const import (
     CONF_DOORS,
+    CONF_PUSH_ENABLED,
+    CONF_PUSH_INTERVAL,
+    CONF_PUSH_PORT,
     CONF_RETRIES,
+    CONF_SCAN_INTERVAL,
     CONF_SERIAL,
     CONF_TIMEOUT,
     DEFAULT_BROADCAST_ADDRESS,
-    DEFAULT_DOORS,
     DEFAULT_PORT,
+    DEFAULT_PUSH_ENABLED,
+    DEFAULT_PUSH_INTERVAL,
+    DEFAULT_PUSH_PORT,
     DEFAULT_RETRIES,
+    DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
@@ -37,9 +44,6 @@ MANUAL_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): cv.string,
         vol.Required(CONF_SERIAL): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-        vol.Optional(CONF_DOORS, default=DEFAULT_DOORS): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=4)
-        ),
     }
 )
 
@@ -89,14 +93,7 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
             }
             return self.async_show_form(
                 step_id="discovery",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required(CONF_SERIAL): vol.In(options),
-                        vol.Optional(CONF_DOORS, default=DEFAULT_DOORS): vol.All(
-                            vol.Coerce(int), vol.Range(min=1, max=4)
-                        ),
-                    }
-                ),
+                data_schema=vol.Schema({vol.Required(CONF_SERIAL): vol.In(options)}),
             )
 
         info = self._discovered[user_input[CONF_SERIAL]]
@@ -109,7 +106,7 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_HOST: info.ip_address,
                 CONF_SERIAL: info.serial,
                 CONF_PORT: DEFAULT_PORT,
-                CONF_DOORS: user_input[CONF_DOORS],
+                CONF_DOORS: info.doors,
             },
         )
 
@@ -120,13 +117,16 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            await self.async_set_unique_id(str(user_input[CONF_SERIAL]))
+            serial = user_input[CONF_SERIAL]
+            await self.async_set_unique_id(str(serial))
             self._abort_if_unique_id_configured(
                 updates={CONF_HOST: user_input[CONF_HOST]}
             )
+            # The leading digit of the serial number identifies the model; the
+            # door count can be overridden later in the options.
             return self.async_create_entry(
-                title=f"Controller {user_input[CONF_SERIAL]}",
-                data=user_input,
+                title=f"Controller {serial}",
+                data={**user_input, CONF_DOORS: doors_for_serial(serial)},
             )
 
         return self.async_show_form(
@@ -140,7 +140,7 @@ class UhppoteConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class UhppoteOptionsFlow(OptionsFlow):
-    """Configure the reply timeout and retry count."""
+    """Configure polling, retries and the push channel."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -148,7 +148,12 @@ class UhppoteOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
-        options = self.config_entry.options
+        entry = self.config_entry
+        options = entry.options
+        default_doors = entry.data.get(CONF_DOORS) or doors_for_serial(
+            entry.data[CONF_SERIAL]
+        )
+
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -159,6 +164,26 @@ class UhppoteOptionsFlow(OptionsFlow):
                     CONF_RETRIES,
                     default=options.get(CONF_RETRIES, DEFAULT_RETRIES),
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=5)),
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=3600)),
+                vol.Optional(
+                    CONF_DOORS,
+                    default=options.get(CONF_DOORS, default_doors),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=4)),
+                vol.Optional(
+                    CONF_PUSH_ENABLED,
+                    default=options.get(CONF_PUSH_ENABLED, DEFAULT_PUSH_ENABLED),
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_PUSH_PORT,
+                    default=options.get(CONF_PUSH_PORT, DEFAULT_PUSH_PORT),
+                ): cv.port,
+                vol.Optional(
+                    CONF_PUSH_INTERVAL,
+                    default=options.get(CONF_PUSH_INTERVAL, DEFAULT_PUSH_INTERVAL),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=255)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

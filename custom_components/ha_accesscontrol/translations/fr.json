@@ -11,43 +11,113 @@
       },
       "discovery": {
         "title": "Contrôleurs détectés",
-        "description": "Sélectionnez le contrôleur à ajouter.",
+        "description": "Sélectionnez le contrôleur à ajouter. Le nombre de portes est déduit du numéro de série et reste modifiable dans les options.",
         "data": {
-          "serial": "Contrôleur",
-          "doors": "Nombre de portes"
+          "serial": "Contrôleur"
         }
       },
       "manual": {
         "title": "Configuration manuelle",
-        "description": "Saisissez l'adresse IP et le numéro de série imprimé sur le contrôleur.",
+        "description": "Saisissez l'adresse IP et le numéro de série inscrit sur le contrôleur.",
         "data": {
           "host": "Adresse IP",
           "serial": "Numéro de série",
-          "port": "Port UDP",
-          "doors": "Nombre de portes"
+          "port": "Port UDP"
         }
       }
     },
     "abort": {
       "already_configured": "Ce contrôleur est déjà configuré.",
-      "no_devices_found": "Aucun contrôleur n'a répondu à la diffusion. Vérifiez que Home Assistant est sur le même sous-réseau, puis utilisez la saisie manuelle."
+      "no_devices_found": "Aucun contrôleur n'a répondu à la diffusion. Vérifiez que Home Assistant est sur le même sous-réseau, puis utilisez la configuration manuelle."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Réglages de communication",
+        "title": "Paramètres de communication",
+        "description": "L'envoi spontané fait remonter les enregistrements dès qu'ils surviennent. Le contrôleur ne mémorise qu'un seul serveur récepteur : l'activer remplace tout autre logiciel actuellement enregistré.",
         "data": {
-          "timeout": "Délai d'attente d'une réponse (s)",
-          "retries": "Nombre de tentatives supplémentaires"
+          "timeout": "Délai de réponse (s)",
+          "retries": "Tentatives supplémentaires",
+          "scan_interval": "Intervalle d'interrogation (s)",
+          "doors": "Nombre de portes",
+          "push_enabled": "Laisser le contrôleur envoyer les enregistrements",
+          "push_port": "Port UDP local de réception",
+          "push_interval": "Intervalle du battement de cœur (s, 0 = enregistrements seuls)"
         }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "door_contact": {
+        "name": "Contact porte {door}"
+      },
+      "door_button": {
+        "name": "Bouton porte {door}"
+      },
+      "door_relay": {
+        "name": "Relais porte {door}"
+      },
+      "fire": {
+        "name": "Alarme incendie"
+      },
+      "forced_lock": {
+        "name": "Verrouillage forcé"
+      },
+      "error": {
+        "name": "Erreur du contrôleur"
+      }
+    },
+    "button": {
+      "open_door": {
+        "name": "Ouvrir la porte {door}"
+      }
+    },
+    "lock": {
+      "door": {
+        "name": "Porte {door}"
+      }
+    },
+    "sensor": {
+      "last_card": {
+        "name": "Dernier badge"
+      },
+      "last_door": {
+        "name": "Dernière porte"
+      },
+      "last_direction": {
+        "name": "Dernier sens",
+        "state": {
+          "in": "Entrée",
+          "out": "Sortie"
+        }
+      },
+      "last_record_type": {
+        "name": "Type du dernier enregistrement",
+        "state": {
+          "none": "Aucun",
+          "card": "Badge",
+          "door": "Porte",
+          "alarm": "Alarme",
+          "overwritten": "Écrasé"
+        }
+      },
+      "last_event_time": {
+        "name": "Dernier événement"
+      },
+      "last_record_index": {
+        "name": "Index du dernier enregistrement"
+      },
+      "clock_drift": {
+        "name": "Dérive d'horloge"
       }
     }
   },
   "services": {
     "open_door": {
-      "name": "Ouvrir une porte",
-      "description": "Envoie la commande d'ouverture à distance au contrôleur.",
+      "name": "Ouvrir la porte",
+      "description": "Envoie la commande d'ouverture distante au contrôleur.",
       "fields": {
         "serial": {
           "name": "Numéro de série",
@@ -55,7 +125,39 @@
         },
         "door": {
           "name": "Porte",
-          "description": "Numéro de la porte à ouvrir (1 à 4)."
+          "description": "Numéro de la porte à ouvrir (1-4)."
+        }
+      }
+    },
+    "set_door_mode": {
+      "name": "Définir le mode de porte",
+      "description": "Modifie le mode de contrôle d'une porte. Le mode est mémorisé dans le contrôleur.",
+      "fields": {
+        "serial": {
+          "name": "Numéro de série",
+          "description": "Numéro de série du contrôleur."
+        },
+        "door": {
+          "name": "Porte",
+          "description": "Numéro de la porte (1-4)."
+        },
+        "mode": {
+          "name": "Mode de contrôle",
+          "description": "normally_open, normally_closed ou controlled."
+        },
+        "delay": {
+          "name": "Délai d'ouverture",
+          "description": "Durée de relâchement du relais en secondes. Inchangé si omis."
+        }
+      }
+    },
+    "sync_time": {
+      "name": "Synchroniser l'horloge",
+      "description": "Écrit l'heure locale actuelle de Home Assistant dans le contrôleur.",
+      "fields": {
+        "serial": {
+          "name": "Numéro de série",
+          "description": "Numéro de série du contrôleur."
         }
       }
     },
@@ -64,8 +166,8 @@
       "description": "Diffuse une requête de découverte sur le réseau local.",
       "fields": {
         "timeout": {
-          "name": "Délai d'écoute",
-          "description": "Durée d'écoute des réponses, en secondes."
+          "name": "Durée d'écoute",
+          "description": "Durée d'attente des réponses, en secondes."
         },
         "broadcast_address": {
           "name": "Adresse de diffusion",

@@ -1,0 +1,38 @@
+# This repository ships a Home Assistant custom component, which is copied into
+# a Home Assistant configuration directory rather than installed as a package.
+# There is deliberately no [project] table: this file only declares the
+# development dependencies and configures the tooling.
+#
+# Dependency groups follow PEP 735 and need pip >= 25.1 (or uv):
+#
+#     pip install --group test
+#     uv sync --group test
+
+[dependency-groups]
+# Protocol tests. api.py imports nothing beyond the standard library, so these
+# run on every supported Python version.
+test = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+# Tests covering the Home Assistant layer (coordinator, entities, config flow).
+# pytest-homeassistant-custom-component pins one Home Assistant release, which
+# in turn constrains the usable Python version.
+integration = [
+    { include-group = "test" },
+    "pytest-homeassistant-custom-component>=0.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Async tests need no marker.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "integration: needs the Home Assistant test harness (group 'integration')",
+]
+filterwarnings = [
+    "error",
+]
